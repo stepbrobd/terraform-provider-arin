@@ -14,3 +14,12 @@ jobs:
   Atelier:
     uses: stepbrobd/atelier/.github/workflows/discover.yaml@master
     secrets: inherit
+
+  # dependabot bumps go.mod without regenerating gomod2nix.toml, and a
+  # drifted vendor set still builds green while linking old modules
+  Drift:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: DeterminateSystems/nix-installer-action@main
+      - run: nix develop --command sh -c 'gomod2nix && git diff --exit-code gomod2nix.toml'
