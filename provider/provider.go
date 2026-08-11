@@ -40,7 +40,7 @@ func (p *arinProvider) Metadata(_ context.Context, _ provider.MetadataRequest, r
 
 func (p *arinProvider) Schema(_ context.Context, _ provider.SchemaRequest, resp *provider.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		Description: "Manage ARIN RPKI objects (ROAs, ASPAs) and IRR objects (route, aut-num, as-set, route-set) through ARIN's RESTful APIs.",
+		Description: "Manage ARIN RPKI objects (ROAs, ASPAs) and IRR objects (route, aut-num, as-set, route-set), adopt registry NETs and reverse DNS delegations, and read org and POC records through ARIN's RESTful APIs.",
 		Attributes: map[string]schema.Attribute{
 			"api_key": schema.StringAttribute{
 				Optional:    true,
@@ -97,11 +97,11 @@ func (p *arinProvider) Configure(ctx context.Context, req provider.ConfigureRequ
 }
 
 func (p *arinProvider) Resources(context.Context) []func() resource.Resource {
-	return []func() resource.Resource{newROAResource, newASPAResource, newIRRRouteResource, newIRRAutNumResource, newIRRASSetResource, newIRRRouteSetResource}
+	return []func() resource.Resource{newROAResource, newASPAResource, newIRRRouteResource, newIRRAutNumResource, newIRRASSetResource, newIRRRouteSetResource, newNetResource, newDelegationResource}
 }
 
 func (p *arinProvider) DataSources(context.Context) []func() datasource.DataSource {
-	return []func() datasource.DataSource{newROAsData, newASPAsData, newIRRRoutesData, newIRRAutNumsData, newIRRASSetsData, newIRRRouteSetsData}
+	return []func() datasource.DataSource{newROAsData, newASPAsData, newIRRRoutesData, newIRRAutNumsData, newIRRASSetsData, newIRRRouteSetsData, newNetData, newDelegationData, newOrgData, newPocData}
 }
 
 // clientFrom extracts the configured client from provider data
