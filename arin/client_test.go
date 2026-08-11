@@ -245,7 +245,7 @@ func TestErrorPayload(t *testing.T) {
 		t.Fatalf("IsNotFound = false for %v", err)
 	}
 	msg := err.Error()
-	for _, want := range []string{"E_OBJECT_NOT_FOUND", "http 404", "roaHandle", "no such handle"} {
+	for _, want := range []string{"E_OBJECT_NOT_FOUND", "http 404", "roaHandle", "no such handle", "extra"} {
 		if !strings.Contains(msg, want) {
 			t.Fatalf("error %q missing %q", msg, want)
 		}

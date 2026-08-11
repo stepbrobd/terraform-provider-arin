@@ -41,6 +41,9 @@ func (e *Error) Error() string {
 	for _, c := range e.Components {
 		fmt.Fprintf(&b, "; %s: %s", c.Name, c.Message)
 	}
+	for _, m := range e.AdditionalInfo {
+		fmt.Fprintf(&b, "; %s", m)
+	}
 	return b.String()
 }
 
