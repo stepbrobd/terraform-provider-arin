@@ -55,7 +55,9 @@ provider_installation {
   multiple orgs.
 - `base_url`: defaults to `https://reg.arin.net`. Set `https://reg.ote.arin.net`
   for OT&E. OT&E data (API keys included) is a monthly snapshot of production,
-  taken around the first Monday of each month.
+  taken around the first Monday of each month. OT&E serves single-object IRR
+  reads but not the org-scoped IRR listings, so the IRR data sources read empty
+  there.
 
 ## Development
 
