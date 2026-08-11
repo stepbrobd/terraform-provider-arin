@@ -97,7 +97,7 @@ func (p *arinProvider) Configure(ctx context.Context, req provider.ConfigureRequ
 }
 
 func (p *arinProvider) Resources(context.Context) []func() resource.Resource {
-	return nil
+	return []func() resource.Resource{newROAResource}
 }
 
 func (p *arinProvider) DataSources(context.Context) []func() datasource.DataSource {
