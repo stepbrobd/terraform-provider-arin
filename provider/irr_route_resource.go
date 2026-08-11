@@ -159,9 +159,25 @@ func (m *irrRouteModel) refresh(r *arin.IRRRoute, diags *diag.Diagnostics) {
 // guard rejects objects arin maintains for auto_link roas
 func routeGuard(r *arin.IRRRoute) error {
 	if r != nil && r.AutoLinkedRoaHandle != "" {
-		return fmt.Errorf("route %s origin %s is auto-linked to roa %s and managed by arin; manage it through the roa's auto_link instead", r.Prefix, r.OriginAS, r.AutoLinkedRoaHandle)
+		return fmt.Errorf("route %s origin %s is auto-linked to roa %s and managed by arin; manage it through the roa's auto_link instead", canonPrefix(r.Prefix), r.OriginAS, r.AutoLinkedRoaHandle)
 	}
 	return nil
+}
+
+// mutable fetches the current object and applies the guard
+// a route can become auto-linked after the last refresh, and applies
+// with -refresh=false skip read entirely, so update and delete
+// re-check server state before mutating
+// exists is false when the object is already absent
+func (r *irrRouteResource) mutable(ctx context.Context, prefix string, origin int64) (exists bool, err error) {
+	current, err := r.client.Route(ctx, prefix, origin)
+	if arin.IsMissing(err) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	return true, routeGuard(current)
 }
 
 func (r *irrRouteResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
@@ -240,6 +256,15 @@ func (r *irrRouteResource) Update(ctx context.Context, req resource.UpdateReques
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	exists, err := r.mutable(ctx, plan.Prefix.ValueString(), plan.OriginAS.ValueInt64())
+	if err != nil {
+		resp.Diagnostics.AddError("route is not updatable", err.Error())
+		return
+	}
+	if !exists {
+		resp.Diagnostics.AddError("updating route", "route no longer exists, refresh and re-plan")
+		return
+	}
 	payload := plan.object(ctx, r.client.Org(), &resp.Diagnostics)
 	if resp.Diagnostics.HasError() {
 		return
@@ -259,7 +284,15 @@ func (r *irrRouteResource) Delete(ctx context.Context, req resource.DeleteReques
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	err := r.client.RouteDelete(ctx, state.Prefix.ValueString(), state.OriginAS.ValueInt64())
+	exists, err := r.mutable(ctx, state.Prefix.ValueString(), state.OriginAS.ValueInt64())
+	if err != nil {
+		resp.Diagnostics.AddError("route is not deletable", err.Error())
+		return
+	}
+	if !exists {
+		return
+	}
+	err = r.client.RouteDelete(ctx, state.Prefix.ValueString(), state.OriginAS.ValueInt64())
 	if err != nil && !arin.IsMissing(err) {
 		resp.Diagnostics.AddError("deleting route", err.Error())
 	}
