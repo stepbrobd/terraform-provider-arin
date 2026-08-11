@@ -41,6 +41,14 @@ func (unknownOnUpdate) PlanModifyBool(_ context.Context, req planmodifier.BoolRe
 	}
 }
 
+// PlanModifySet marks a computed set attribute unknown on update
+// every set in this provider is a string set
+func (unknownOnUpdate) PlanModifySet(_ context.Context, req planmodifier.SetRequest, resp *planmodifier.SetResponse) {
+	if updating(req.Plan.Raw, req.State.Raw) {
+		resp.PlanValue = types.SetUnknown(types.StringType)
+	}
+}
+
 // updating is true only for updates in place
 // create has null state and destroy has a null plan
 func updating(plan, state tftypes.Value) bool {

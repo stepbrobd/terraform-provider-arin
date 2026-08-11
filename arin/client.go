@@ -46,6 +46,9 @@ func New(base, key, org string) (*Client, error) {
 	return &Client{base: u, key: key, org: org, http: &http.Client{Timeout: 30 * time.Second}}, nil
 }
 
+// Org returns the org handle the client is bound to
+func (c *Client) Org() string { return c.org }
+
 // do sends one request and returns the raw response body
 // non-2xx responses decode into *Error when the body is a reg-rws
 // error payload
