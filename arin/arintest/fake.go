@@ -8,13 +8,14 @@ import (
 	"net/http/httptest"
 	"net/netip"
 	"sort"
+	"strings"
 	"sync"
 	"testing"
 
 	"github.com/stepbrobd/terraform-provider-arin/arin"
 )
 
-// Server holds fake org state behind the three rpki endpoints
+// Server holds fake org state behind the rpki and irr endpoints
 type Server struct {
 	*httptest.Server
 
@@ -24,16 +25,26 @@ type Server struct {
 	seq   int
 	roas  map[string]arin.ROASpec
 	aspas map[int64]arin.ASPA
+
+	irrRoutes    map[string]arin.IRRRoute
+	irrAutNums   map[string]arin.IRRAutNum
+	irrASSets    map[string]arin.IRRASSet
+	irrRouteSets map[string]arin.IRRRouteSet
+	irrRev       int
 }
 
 // New starts a fake bound to one api key and org handle
 // the server closes with the test
 func New(t *testing.T, key, org string) *Server {
 	s := &Server{
-		key:   key,
-		org:   org,
-		roas:  map[string]arin.ROASpec{},
-		aspas: map[int64]arin.ASPA{},
+		key:          key,
+		org:          org,
+		roas:         map[string]arin.ROASpec{},
+		aspas:        map[int64]arin.ASPA{},
+		irrRoutes:    map[string]arin.IRRRoute{},
+		irrAutNums:   map[string]arin.IRRAutNum{},
+		irrASSets:    map[string]arin.IRRASSet{},
+		irrRouteSets: map[string]arin.IRRRouteSet{},
 	}
 	s.Server = httptest.NewServer(http.HandlerFunc(s.handle))
 	t.Cleanup(s.Close)
@@ -59,6 +70,10 @@ func (s *Server) handle(w http.ResponseWriter, r *http.Request) {
 	// the way ote actually does
 	if r.URL.Query().Get("apikey") != s.key {
 		s.fail(w, http.StatusUnauthorized, arin.CodeAuthentication, "bad api key")
+		return
+	}
+	if strings.HasPrefix(r.URL.Path, "/rest/irr/") {
+		s.irr(w, r)
 		return
 	}
 	switch {
