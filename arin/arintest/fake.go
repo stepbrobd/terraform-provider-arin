@@ -34,6 +34,11 @@ type Server struct {
 	irrASSets    map[string]arin.IRRASSet
 	irrRouteSets map[string]arin.IRRRouteSet
 	irrRev       int
+
+	nets        map[string]arin.Net
+	delegations map[string]arin.Delegation
+	orgs        map[string]arin.Org
+	pocs        map[string]arin.Poc
 }
 
 // New starts a fake bound to one api key and org handle
@@ -48,6 +53,10 @@ func New(t *testing.T, key, org string) *Server {
 		irrAutNums:   map[string]arin.IRRAutNum{},
 		irrASSets:    map[string]arin.IRRASSet{},
 		irrRouteSets: map[string]arin.IRRRouteSet{},
+		nets:         map[string]arin.Net{},
+		delegations:  map[string]arin.Delegation{},
+		orgs:         map[string]arin.Org{},
+		pocs:         map[string]arin.Poc{},
 	}
 	s.Server = httptest.NewServer(http.HandlerFunc(s.handle))
 	t.Cleanup(s.Close)
@@ -88,6 +97,12 @@ func (s *Server) handle(w http.ResponseWriter, r *http.Request) {
 	if strings.HasPrefix(r.URL.Path, "/rest/irr/") {
 		s.irr(w, r)
 		return
+	}
+	for _, p := range []string{"/rest/net/", "/rest/delegation/", "/rest/org/", "/rest/poc/"} {
+		if strings.HasPrefix(r.URL.Path, p) {
+			s.registry(w, r)
+			return
+		}
 	}
 	switch {
 	case r.Method == http.MethodPost && r.URL.Path == "/rest/rpki/"+s.org:
