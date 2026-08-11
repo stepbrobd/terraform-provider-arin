@@ -2,6 +2,9 @@ package provider
 
 import (
 	"context"
+	"errors"
+	"fmt"
+	"time"
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/listvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/path"
@@ -115,17 +118,36 @@ func (r *roaResource) handles(ctx context.Context) (map[string]bool, error) {
 }
 
 // settle re-lists after a transaction and fills m from the new roa
+// the listing can transiently fail or lag right behind the mutation,
+// so identification retries briefly before giving up
 func (r *roaResource) settle(ctx context.Context, m *roaModel, before map[string]bool) error {
-	after, err := r.client.ROAs(ctx)
-	if err != nil {
-		return err
+	const attempts = 3
+	var last error
+	for i := range attempts {
+		if i > 0 {
+			select {
+			case <-ctx.Done():
+				return last
+			case <-time.After(time.Second):
+			}
+		}
+		after, err := r.client.ROAs(ctx)
+		if err != nil {
+			last = err
+			continue
+		}
+		created, err := findNew(before, after, m)
+		if err == nil {
+			m.refresh(created)
+			return nil
+		}
+		last = err
+		// only a lagging listing can resolve by waiting
+		if !errors.Is(err, errSettleNoMatch) {
+			return err
+		}
 	}
-	created, err := findNew(before, after, m)
-	if err != nil {
-		return err
-	}
-	m.refresh(created)
-	return nil
+	return last
 }
 
 func (r *roaResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
@@ -145,7 +167,10 @@ func (r *roaResource) Create(ctx context.Context, req resource.CreateRequest, re
 		return
 	}
 	if err := r.settle(ctx, &plan, before); err != nil {
-		resp.Diagnostics.AddError("identifying created roa", err.Error())
+		resp.Diagnostics.AddError(
+			"identifying created roa",
+			fmt.Sprintf("%s\n\nthe transaction succeeded, so the roa exists in arin without terraform tracking. find its handle with the arin_roas data source and adopt it with terraform import.", err),
+		)
 		return
 	}
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
@@ -227,7 +252,10 @@ func (r *roaResource) Update(ctx context.Context, req resource.UpdateRequest, re
 		return
 	}
 	if err := r.settle(ctx, &plan, before); err != nil {
-		resp.Diagnostics.AddError("identifying updated roa", err.Error())
+		resp.Diagnostics.AddError(
+			"identifying updated roa",
+			fmt.Sprintf("%s\n\nthe transaction succeeded, roa %s was deleted and its replacement exists in arin without terraform tracking. refresh to drop the stale state entry, then find the new handle with the arin_roas data source and adopt it with terraform import.", err, old),
+		)
 		return
 	}
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)

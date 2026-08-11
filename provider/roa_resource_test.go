@@ -2,6 +2,7 @@ package provider_test
 
 import (
 	"fmt"
+	"regexp"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
@@ -72,6 +73,57 @@ resource "arin_roa" "test" {
 				// auto_link is write-only on the arin side
 				// imports fall back to the schema default
 				ImportStateVerifyIgnore: []string{"auto_link"},
+			},
+		},
+	})
+}
+
+func TestAccROASettleRetry(t *testing.T) {
+	srv := arintest.New(t, "TESTKEY", "TESTORG")
+	// the pre-create listing passes, the first settlement listing
+	// fails, and the retry identifies the roa
+	srv.FailROAList(1, 1)
+	cfg := providerConfig(srv.URL) + `
+resource "arin_roa" "retry" {
+  as_number = 64496
+  name      = "retry"
+  resources = [{
+    start_address = "192.0.2.0"
+    cidr_length   = 24
+  }]
+}
+`
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: factories(),
+		Steps: []resource.TestStep{
+			{
+				Config: cfg,
+				Check:  resource.TestCheckResourceAttrSet("arin_roa.retry", "roa_handle"),
+			},
+		},
+	})
+}
+
+func TestAccROASettleFailureGuidance(t *testing.T) {
+	srv := arintest.New(t, "TESTKEY", "TESTORG")
+	// every settlement listing fails, the error must point at import
+	srv.FailROAList(1, 10)
+	cfg := providerConfig(srv.URL) + `
+resource "arin_roa" "lost" {
+  as_number = 64496
+  name      = "lost"
+  resources = [{
+    start_address = "192.0.2.0"
+    cidr_length   = 24
+  }]
+}
+`
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: factories(),
+		Steps: []resource.TestStep{
+			{
+				Config:      cfg,
+				ExpectError: regexp.MustCompile(`arin_roas data source`),
 			},
 		},
 	})

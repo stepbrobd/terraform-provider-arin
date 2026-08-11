@@ -26,6 +26,9 @@ type Server struct {
 	roas  map[string]arin.ROASpec
 	aspas map[int64]arin.ASPA
 
+	skipROAList int
+	failROAList int
+
 	irrRoutes    map[string]arin.IRRRoute
 	irrAutNums   map[string]arin.IRRAutNum
 	irrASSets    map[string]arin.IRRASSet
@@ -49,6 +52,16 @@ func New(t *testing.T, key, org string) *Server {
 	s.Server = httptest.NewServer(http.HandlerFunc(s.handle))
 	t.Cleanup(s.Close)
 	return s
+}
+
+// FailROAList makes roa list requests fail with an outage error
+// the first skip requests pass through and the next n fail
+// tests use it to exercise settlement retries after a transaction
+func (s *Server) FailROAList(skip, n int) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.skipROAList = skip
+	s.failROAList = n
 }
 
 func (s *Server) fail(w http.ResponseWriter, status int, code, msg string) {
@@ -80,6 +93,13 @@ func (s *Server) handle(w http.ResponseWriter, r *http.Request) {
 	case r.Method == http.MethodPost && r.URL.Path == "/rest/rpki/"+s.org:
 		s.transact(w, r)
 	case r.Method == http.MethodGet && r.URL.Path == "/rest/roa/"+s.org:
+		if s.skipROAList > 0 {
+			s.skipROAList--
+		} else if s.failROAList > 0 {
+			s.failROAList--
+			s.fail(w, http.StatusServiceUnavailable, arin.CodeOutage, "induced outage")
+			return
+		}
 		s.listROAs(w)
 	case r.Method == http.MethodGet && r.URL.Path == "/rest/aspa/"+s.org:
 		s.listASPAs(w)

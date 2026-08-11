@@ -1,6 +1,7 @@
 package provider
 
 import (
+	"errors"
 	"fmt"
 	"net/netip"
 	"strconv"
@@ -119,6 +120,10 @@ outer:
 	return true
 }
 
+// errSettleNoMatch reports a listing that does not yet show the new
+// roa, which can be the listing lagging the transaction
+var errSettleNoMatch = errors.New("transaction succeeded but no new roa matches the configuration")
+
 // findNew locates the roa created by the previous transaction
 // arin assigns handles server side and the post response is
 // undocumented, so creation is identified by diffing listings taken
@@ -135,7 +140,7 @@ func findNew(before map[string]bool, after []arin.ROASpec, m *roaModel) (*arin.R
 	case 1:
 		return hits[0], nil
 	case 0:
-		return nil, fmt.Errorf("transaction succeeded but no new roa matches the configuration")
+		return nil, errSettleNoMatch
 	default:
 		return nil, fmt.Errorf("%d new roas match the configuration, cannot identify ours", len(hits))
 	}
