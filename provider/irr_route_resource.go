@@ -203,7 +203,7 @@ func (r *irrRouteResource) Create(ctx context.Context, req resource.CreateReques
 		resp.Diagnostics.AddError("route already exists", "import it instead of creating")
 		return
 	}
-	payload := plan.object(ctx, r.client.Org(), &resp.Diagnostics)
+	payload := plan.object(ctx, r.client.OrgHandle(), &resp.Diagnostics)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -265,7 +265,7 @@ func (r *irrRouteResource) Update(ctx context.Context, req resource.UpdateReques
 		resp.Diagnostics.AddError("updating route", "route no longer exists, refresh and re-plan")
 		return
 	}
-	payload := plan.object(ctx, r.client.Org(), &resp.Diagnostics)
+	payload := plan.object(ctx, r.client.OrgHandle(), &resp.Diagnostics)
 	if resp.Diagnostics.HasError() {
 		return
 	}

@@ -144,7 +144,7 @@ func (r *irrASSetResource) Create(ctx context.Context, req resource.CreateReques
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	payload := plan.asSet(ctx, r.client.Org(), &resp.Diagnostics)
+	payload := plan.asSet(ctx, r.client.OrgHandle(), &resp.Diagnostics)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -191,7 +191,7 @@ func (r *irrASSetResource) Update(ctx context.Context, req resource.UpdateReques
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	payload := plan.asSet(ctx, r.client.Org(), &resp.Diagnostics)
+	payload := plan.asSet(ctx, r.client.OrgHandle(), &resp.Diagnostics)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -298,7 +298,7 @@ func (r *irrRouteSetResource) Create(ctx context.Context, req resource.CreateReq
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	payload := plan.routeSet(ctx, r.client.Org(), &resp.Diagnostics)
+	payload := plan.routeSet(ctx, r.client.OrgHandle(), &resp.Diagnostics)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -345,7 +345,7 @@ func (r *irrRouteSetResource) Update(ctx context.Context, req resource.UpdateReq
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	payload := plan.routeSet(ctx, r.client.Org(), &resp.Diagnostics)
+	payload := plan.routeSet(ctx, r.client.OrgHandle(), &resp.Diagnostics)
 	if resp.Diagnostics.HasError() {
 		return
 	}

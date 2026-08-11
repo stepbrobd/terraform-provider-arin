@@ -163,7 +163,7 @@ func (r *irrAutNumResource) Create(ctx context.Context, req resource.CreateReque
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	payload := plan.object(ctx, r.client.Org(), &resp.Diagnostics)
+	payload := plan.object(ctx, r.client.OrgHandle(), &resp.Diagnostics)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -210,7 +210,7 @@ func (r *irrAutNumResource) Update(ctx context.Context, req resource.UpdateReque
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	payload := plan.object(ctx, r.client.Org(), &resp.Diagnostics)
+	payload := plan.object(ctx, r.client.OrgHandle(), &resp.Diagnostics)
 	if resp.Diagnostics.HasError() {
 		return
 	}
