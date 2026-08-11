@@ -17,9 +17,10 @@ type ROADeletes struct {
 }
 
 // ROAHandleRef names an existing roa in a delete
-// autolink mirrors the attribute arin documents on delete handles
+// the docs show a lowercase autolink attribute but the live schema
+// requires autoLink, verified against ote on 2026-08-11
 type ROAHandleRef struct {
-	AutoLink bool   `xml:"autolink,attr"`
+	AutoLink bool   `xml:"autoLink,attr"`
 	Handle   string `xml:",chardata"`
 }
 

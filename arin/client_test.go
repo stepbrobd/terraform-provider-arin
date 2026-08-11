@@ -64,7 +64,7 @@ func TestTransactRequest(t *testing.T) {
 	if !strings.Contains(string(body), `<rpkiTransaction xmlns="http://www.arin.net/regrws/rpki/v1">`) {
 		t.Fatalf("missing namespaced root in %s", body)
 	}
-	if !strings.Contains(string(body), `<roaHandle autolink="true">24ab90ed</roaHandle>`) {
+	if !strings.Contains(string(body), `<roaHandle autoLink="true">24ab90ed</roaHandle>`) {
 		t.Fatalf("missing delete handle in %s", body)
 	}
 	var back Transaction
