@@ -1,0 +1,10 @@
+*.a
+*.o
+.direnv
+result
+result-*
+/terraform-provider-arin
+.terraform
+.terraform.lock.hcl
+*.tfstate
+*.tfstate.backup
