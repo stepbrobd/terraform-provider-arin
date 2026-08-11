@@ -3,7 +3,7 @@ package provider
 import (
 	"context"
 	"fmt"
-	"sort"
+	"slices"
 	"strconv"
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/setvalidator"
@@ -32,7 +32,7 @@ type aspaModel struct {
 // aspa converts the model into the arin request shape
 func (m *aspaModel) aspa() arin.ASPA {
 	ids := append([]int64(nil), m.ProviderASIDs...)
-	sort.Slice(ids, func(i, j int) bool { return ids[i] < ids[j] })
+	slices.Sort(ids)
 	return arin.ASPA{CustomerASID: m.CustomerAS.ValueInt64(), ProviderASIDs: ids}
 }
 

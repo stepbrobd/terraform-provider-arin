@@ -11,8 +11,6 @@ import (
 	"testing"
 )
 
-func ptr[T any](v T) *T { return &v }
-
 func TestTransactRequest(t *testing.T) {
 	var body []byte
 	var hdr http.Header
@@ -41,7 +39,7 @@ func TestTransactRequest(t *testing.T) {
 			Resources: []ROAResourceRequest{{
 				StartAddress: "192.0.2.0",
 				CIDRLength:   24,
-				MaxLength:    ptr(int64(25)),
+				MaxLength:    new(int64(25)),
 			}},
 		}}},
 		ASPAAdds: &ASPAAdds{ASPAs: []ASPA{{CustomerASID: 64496, ProviderASIDs: []int64{64497, 64498}}}},

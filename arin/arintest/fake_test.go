@@ -8,8 +8,6 @@ import (
 	"github.com/stepbrobd/terraform-provider-arin/arin"
 )
 
-func ptr[T any](v T) *T { return &v }
-
 func TestLifecycle(t *testing.T) {
 	ctx := context.Background()
 	srv := New(t, "KEY", "ORG")
@@ -24,7 +22,7 @@ func TestLifecycle(t *testing.T) {
 			ASNumber: 64496,
 			Name:     "headquarters",
 			Resources: []arin.ROAResourceRequest{
-				{StartAddress: "192.0.2.0", CIDRLength: 24, MaxLength: ptr(int64(25))},
+				{StartAddress: "192.0.2.0", CIDRLength: 24, MaxLength: new(int64(25))},
 				{StartAddress: "2001:db8::", CIDRLength: 32},
 			},
 		}}},
