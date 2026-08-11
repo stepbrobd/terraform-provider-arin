@@ -76,3 +76,41 @@ resource "arin_roa" "test" {
 		},
 	})
 }
+
+func TestAccROAMultiResource(t *testing.T) {
+	srv := arintest.New(t, "TESTKEY", "TESTORG")
+	// config order deliberately differs from the fake's canonical
+	// (sorted) order to exercise refresh alignment
+	cfg := providerConfig(srv.URL) + `
+resource "arin_roa" "multi" {
+  as_number = 64496
+  name      = "multi"
+  resources = [
+    {
+      start_address = "198.51.100.0"
+      cidr_length   = 24
+    },
+    {
+      start_address = "192.0.2.0"
+      cidr_length   = 24
+    },
+  ]
+}
+`
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: factories(),
+		Steps: []resource.TestStep{
+			{
+				Config: cfg,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("arin_roa.multi", "resources.0.start_address", "198.51.100.0"),
+					resource.TestCheckResourceAttr("arin_roa.multi", "resources.0.end_address", "198.51.100.255"),
+					resource.TestCheckResourceAttr("arin_roa.multi", "resources.1.start_address", "192.0.2.0"),
+					resource.TestCheckResourceAttr("arin_roa.multi", "resources.1.end_address", "192.0.2.255"),
+					resource.TestCheckNoResourceAttr("arin_roa.multi", "resources.0.max_length"),
+					resource.TestCheckNoResourceAttr("arin_roa.multi", "resources.1.max_length"),
+				),
+			},
+		},
+	})
+}

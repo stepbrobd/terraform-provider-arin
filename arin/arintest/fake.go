@@ -151,15 +151,25 @@ func (s *Server) build(spec arin.ROASpecRequest) (arin.ROASpec, error) {
 		if addr.Is6() {
 			ver = 6
 		}
+		ml := rr.MaxLength
+		if ml == nil {
+			// arin defaults max length to the cidr length when unset
+			v := rr.CIDRLength
+			ml = &v
+		}
 		out.Resources = append(out.Resources, arin.ROAResource{
 			StartAddress: rr.StartAddress,
 			EndAddress:   lastAddr(p).String(),
 			CIDRLength:   rr.CIDRLength,
-			MaxLength:    rr.MaxLength,
+			MaxLength:    ml,
 			IPVersion:    ver,
 			AutoLinked:   spec.AutoLink,
 		})
 	}
+	// serve resources in a canonical order unrelated to request order
+	sort.Slice(out.Resources, func(i, j int) bool {
+		return out.Resources[i].StartAddress < out.Resources[j].StartAddress
+	})
 	return out, nil
 }
 

@@ -57,6 +57,9 @@ func TestLifecycle(t *testing.T) {
 	if got := roa.Resources[1].EndAddress; got != "2001:db8:ffff:ffff:ffff:ffff:ffff:ffff" {
 		t.Fatalf("v6 end = %q", got)
 	}
+	if ml := roa.Resources[1].MaxLength; ml == nil || *ml != 32 {
+		t.Fatalf("v6 default maxLength = %v", ml)
+	}
 	if !roa.Resources[0].AutoLinked {
 		t.Fatal("autoLinked not propagated")
 	}
