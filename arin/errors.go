@@ -4,6 +4,7 @@ import (
 	"encoding/xml"
 	"errors"
 	"fmt"
+	"net/http"
 	"strings"
 )
 
@@ -47,8 +48,13 @@ func (e *Error) Error() string {
 	return b.String()
 }
 
-// IsNotFound reports whether err is an arin E_OBJECT_NOT_FOUND error
+// IsNotFound reports whether err is an arin not-found error
+// ote returns 404 with E_UNSPECIFIED for missing irr objects, so a
+// 404 status counts regardless of code
 func IsNotFound(err error) bool {
 	var e *Error
-	return errors.As(err, &e) && e.Code == CodeObjectNotFound
+	if !errors.As(err, &e) {
+		return false
+	}
+	return e.Code == CodeObjectNotFound || e.Status == http.StatusNotFound
 }

@@ -49,7 +49,7 @@ func New(base, key, org string) (*Client, error) {
 // do sends one request and returns the raw response body
 // non-2xx responses decode into *Error when the body is a reg-rws
 // error payload
-func (c *Client) do(ctx context.Context, method, path string, body any) ([]byte, error) {
+func (c *Client) do(ctx context.Context, method, path string, query url.Values, body any) ([]byte, error) {
 	var rd io.Reader
 	if body != nil {
 		b, err := xml.Marshal(body)
@@ -62,6 +62,11 @@ func (c *Client) do(ctx context.Context, method, path string, body any) ([]byte,
 	// production docs prefer the authorization header, so send both
 	u := c.base.JoinPath(path)
 	q := u.Query()
+	for k, vs := range query {
+		for _, v := range vs {
+			q.Add(k, v)
+		}
+	}
 	q.Set("apikey", c.key)
 	u.RawQuery = q.Encode()
 	req, err := http.NewRequestWithContext(ctx, method, u.String(), rd)
@@ -95,13 +100,13 @@ func (c *Client) do(ctx context.Context, method, path string, body any) ([]byte,
 
 // Transact posts an all-or-nothing rpki transaction
 func (c *Client) Transact(ctx context.Context, tx Transaction) error {
-	_, err := c.do(ctx, http.MethodPost, "/rest/rpki/"+c.org, &tx)
+	_, err := c.do(ctx, http.MethodPost, "/rest/rpki/"+c.org, nil, &tx)
 	return err
 }
 
 // ROAs lists every roa spec for the org
 func (c *Client) ROAs(ctx context.Context) ([]ROASpec, error) {
-	data, err := c.do(ctx, http.MethodGet, "/rest/roa/"+c.org, nil)
+	data, err := c.do(ctx, http.MethodGet, "/rest/roa/"+c.org, nil, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -110,7 +115,7 @@ func (c *Client) ROAs(ctx context.Context) ([]ROASpec, error) {
 
 // ASPAs lists every aspa for the org
 func (c *Client) ASPAs(ctx context.Context) ([]ASPA, error) {
-	data, err := c.do(ctx, http.MethodGet, "/rest/aspa/"+c.org, nil)
+	data, err := c.do(ctx, http.MethodGet, "/rest/aspa/"+c.org, nil, nil)
 	if err != nil {
 		return nil, err
 	}
