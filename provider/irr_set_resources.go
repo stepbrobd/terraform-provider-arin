@@ -1,0 +1,355 @@
+package provider
+
+import (
+	"context"
+
+	"github.com/hashicorp/terraform-plugin-framework-validators/listvalidator"
+	"github.com/hashicorp/terraform-plugin-framework-validators/setvalidator"
+	"github.com/hashicorp/terraform-plugin-framework/diag"
+	"github.com/hashicorp/terraform-plugin-framework/path"
+	"github.com/hashicorp/terraform-plugin-framework/resource"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
+	"github.com/hashicorp/terraform-plugin-framework/types"
+
+	"github.com/stepbrobd/terraform-provider-arin/arin"
+)
+
+// the two irr set classes share model shape except for mp_members
+
+type irrSetModel struct {
+	Name         types.String `tfsdk:"name"`
+	Descriptions types.List   `tfsdk:"descriptions"`
+	AdminPOCs    types.Set    `tfsdk:"admin_pocs"`
+	TechPOCs     types.Set    `tfsdk:"tech_pocs"`
+	RoutingPOCs  types.Set    `tfsdk:"routing_pocs"`
+	Remarks      types.List   `tfsdk:"remarks"`
+	Members      types.Set    `tfsdk:"members"`
+	MbrsByRef    types.Set    `tfsdk:"mbrs_by_ref"`
+	OrgHandle    types.String `tfsdk:"org_handle"`
+	Created      types.String `tfsdk:"created"`
+	LastModified types.String `tfsdk:"last_modified"`
+}
+
+type irrRouteSetModel struct {
+	irrSetModel
+	MPMembers types.Set `tfsdk:"mp_members"`
+}
+
+func irrSetAttributes(nameDesc string) map[string]schema.Attribute {
+	return map[string]schema.Attribute{
+		"name": schema.StringAttribute{
+			Required:      true,
+			Description:   nameDesc,
+			PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
+		},
+		"descriptions": schema.ListAttribute{
+			Required:    true,
+			ElementType: types.StringType,
+			Validators:  []validator.List{listvalidator.SizeAtLeast(1)},
+		},
+		"admin_pocs": schema.SetAttribute{
+			Required:    true,
+			ElementType: types.StringType,
+			Validators:  []validator.Set{setvalidator.SizeAtLeast(1)},
+		},
+		"tech_pocs": schema.SetAttribute{
+			Required:    true,
+			ElementType: types.StringType,
+			Validators:  []validator.Set{setvalidator.SizeAtLeast(1)},
+		},
+		"routing_pocs": schema.SetAttribute{Optional: true, ElementType: types.StringType},
+		"remarks":      schema.ListAttribute{Optional: true, ElementType: types.StringType},
+		"members":      schema.SetAttribute{Optional: true, ElementType: types.StringType},
+		"mbrs_by_ref":  schema.SetAttribute{Optional: true, ElementType: types.StringType},
+		"org_handle":   schema.StringAttribute{Computed: true, PlanModifiers: []planmodifier.String{unknownOnUpdate{}}},
+		"created":      schema.StringAttribute{Computed: true, PlanModifiers: []planmodifier.String{unknownOnUpdate{}}},
+		"last_modified": schema.StringAttribute{
+			Computed:      true,
+			PlanModifiers: []planmodifier.String{unknownOnUpdate{}},
+		},
+	}
+}
+
+// as-set
+
+type irrASSetResource struct {
+	client *arin.Client
+}
+
+func newIRRASSetResource() resource.Resource { return &irrASSetResource{} }
+
+func (r *irrASSetResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
+	resp.TypeName = req.ProviderTypeName + "_irr_as_set"
+}
+
+func (r *irrASSetResource) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
+	r.client = clientFrom(req.ProviderData, &resp.Diagnostics)
+}
+
+func (r *irrASSetResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
+	resp.Schema = schema.Schema{
+		Description: "An IRR as-set object.",
+		Attributes:  irrSetAttributes("Set name, AS- prefixed, optionally ASN-scoped (AS64496:AS-EXAMPLE)."),
+	}
+}
+
+func (m *irrSetModel) asSet(ctx context.Context, org string, diags *diag.Diagnostics) arin.IRRASSet {
+	admin := fromSet(ctx, m.AdminPOCs, diags)
+	tech := fromSet(ctx, m.TechPOCs, diags)
+	routing := fromSet(ctx, m.RoutingPOCs, diags)
+	return arin.IRRASSet{
+		Name:         m.Name.ValueString(),
+		Description:  arin.MakeLines(fromList(ctx, m.Descriptions, diags)),
+		Remarks:      arin.MakeLines(fromList(ctx, m.Remarks, diags)),
+		PocLinks:     pocRefs(admin, tech, routing),
+		Members:      nameRefs(fromSet(ctx, m.Members, diags)),
+		MembersByRef: nameRefs(fromSet(ctx, m.MbrsByRef, diags)),
+		OrgHandle:    org,
+		Source:       "ARIN",
+	}
+}
+
+func (m *irrSetModel) refreshASSet(s *arin.IRRASSet, diags *diag.Diagnostics) {
+	m.Name = types.StringValue(s.Name)
+	m.Descriptions = toList(s.Description.Strings())
+	m.Remarks = toList(s.Remarks.Strings())
+	admin, tech, routing := pocSplit(s.PocLinks)
+	m.AdminPOCs = toSet(admin)
+	m.TechPOCs = toSet(tech)
+	m.RoutingPOCs = toSet(routing)
+	m.Members = toSet(names(s.Members))
+	m.MbrsByRef = toSet(names(s.MembersByRef))
+	m.OrgHandle = types.StringValue(s.OrgHandle)
+	m.Created = types.StringValue(s.Created)
+	m.LastModified = types.StringValue(s.Modified)
+}
+
+func (r *irrASSetResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
+	var plan irrSetModel
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	created, err := r.client.ASSetCreate(ctx, plan.asSet(ctx, r.client.Org(), &resp.Diagnostics))
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	if err != nil {
+		resp.Diagnostics.AddError("creating as-set", err.Error())
+		return
+	}
+	plan.refreshASSet(created, &resp.Diagnostics)
+	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
+}
+
+func (r *irrASSetResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
+	var name types.String
+	resp.Diagnostics.Append(req.State.GetAttribute(ctx, path.Root("name"), &name)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	got, err := r.client.ASSet(ctx, name.ValueString())
+	if arin.IsNotFound(err) {
+		resp.State.RemoveResource(ctx)
+		return
+	}
+	if err != nil {
+		resp.Diagnostics.AddError("reading as-set", err.Error())
+		return
+	}
+	state := irrSetModel{Name: name}
+	var descr types.List
+	resp.Diagnostics.Append(req.State.GetAttribute(ctx, path.Root("descriptions"), &descr)...)
+	if !descr.IsNull() {
+		resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+	}
+	state.refreshASSet(got, &resp.Diagnostics)
+	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
+}
+
+func (r *irrASSetResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
+	var plan irrSetModel
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	updated, err := r.client.ASSetUpdate(ctx, plan.Name.ValueString(), plan.asSet(ctx, r.client.Org(), &resp.Diagnostics))
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	if err != nil {
+		resp.Diagnostics.AddError("updating as-set", err.Error())
+		return
+	}
+	plan.refreshASSet(updated, &resp.Diagnostics)
+	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
+}
+
+func (r *irrASSetResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
+	var state irrSetModel
+	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	err := r.client.ASSetDelete(ctx, state.Name.ValueString())
+	if err != nil && !arin.IsNotFound(err) {
+		resp.Diagnostics.AddError("deleting as-set", err.Error())
+	}
+}
+
+func (r *irrASSetResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+	resource.ImportStatePassthroughID(ctx, path.Root("name"), req, resp)
+}
+
+// route-set
+
+type irrRouteSetResource struct {
+	client *arin.Client
+}
+
+func newIRRRouteSetResource() resource.Resource { return &irrRouteSetResource{} }
+
+func (r *irrRouteSetResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
+	resp.TypeName = req.ProviderTypeName + "_irr_route_set"
+}
+
+func (r *irrRouteSetResource) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
+	r.client = clientFrom(req.ProviderData, &resp.Diagnostics)
+}
+
+func (r *irrRouteSetResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
+	attrs := irrSetAttributes("Set name, RS- prefixed, optionally ASN-scoped (AS64496:RS-EXAMPLE).")
+	attrs["members"] = schema.SetAttribute{
+		Optional:    true,
+		ElementType: types.StringType,
+		Description: "IPv4 prefixes or route-set names.",
+	}
+	attrs["mp_members"] = schema.SetAttribute{
+		Optional:    true,
+		ElementType: types.StringType,
+		Description: "Prefixes of either family or route-set names.",
+	}
+	resp.Schema = schema.Schema{
+		Description: "An IRR route-set object.",
+		Attributes:  attrs,
+	}
+}
+
+func (m *irrRouteSetModel) routeSet(ctx context.Context, org string, diags *diag.Diagnostics) arin.IRRRouteSet {
+	admin := fromSet(ctx, m.AdminPOCs, diags)
+	tech := fromSet(ctx, m.TechPOCs, diags)
+	routing := fromSet(ctx, m.RoutingPOCs, diags)
+	return arin.IRRRouteSet{
+		Name:         m.Name.ValueString(),
+		Description:  arin.MakeLines(fromList(ctx, m.Descriptions, diags)),
+		Remarks:      arin.MakeLines(fromList(ctx, m.Remarks, diags)),
+		PocLinks:     pocRefs(admin, tech, routing),
+		Members:      nameRefs(fromSet(ctx, m.Members, diags)),
+		MPMembers:    nameRefs(fromSet(ctx, m.MPMembers, diags)),
+		MembersByRef: nameRefs(fromSet(ctx, m.MbrsByRef, diags)),
+		OrgHandle:    org,
+		Source:       "ARIN",
+	}
+}
+
+func (m *irrRouteSetModel) refreshRouteSet(s *arin.IRRRouteSet, diags *diag.Diagnostics) {
+	m.Name = types.StringValue(s.Name)
+	m.Descriptions = toList(s.Description.Strings())
+	m.Remarks = toList(s.Remarks.Strings())
+	admin, tech, routing := pocSplit(s.PocLinks)
+	m.AdminPOCs = toSet(admin)
+	m.TechPOCs = toSet(tech)
+	m.RoutingPOCs = toSet(routing)
+	m.Members = toSet(names(s.Members))
+	m.MPMembers = toSet(names(s.MPMembers))
+	m.MbrsByRef = toSet(names(s.MembersByRef))
+	m.OrgHandle = types.StringValue(s.OrgHandle)
+	m.Created = types.StringValue(s.Created)
+	m.LastModified = types.StringValue(s.Modified)
+}
+
+func (r *irrRouteSetResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
+	var plan irrRouteSetModel
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	created, err := r.client.RouteSetCreate(ctx, plan.routeSet(ctx, r.client.Org(), &resp.Diagnostics))
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	if err != nil {
+		resp.Diagnostics.AddError("creating route-set", err.Error())
+		return
+	}
+	plan.refreshRouteSet(created, &resp.Diagnostics)
+	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
+}
+
+func (r *irrRouteSetResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
+	var name types.String
+	resp.Diagnostics.Append(req.State.GetAttribute(ctx, path.Root("name"), &name)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	got, err := r.client.RouteSet(ctx, name.ValueString())
+	if arin.IsNotFound(err) {
+		resp.State.RemoveResource(ctx)
+		return
+	}
+	if err != nil {
+		resp.Diagnostics.AddError("reading route-set", err.Error())
+		return
+	}
+	state := irrRouteSetModel{irrSetModel: irrSetModel{Name: name}}
+	var descr types.List
+	resp.Diagnostics.Append(req.State.GetAttribute(ctx, path.Root("descriptions"), &descr)...)
+	if !descr.IsNull() {
+		resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+	}
+	state.refreshRouteSet(got, &resp.Diagnostics)
+	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
+}
+
+func (r *irrRouteSetResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
+	var plan irrRouteSetModel
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	updated, err := r.client.RouteSetUpdate(ctx, plan.Name.ValueString(), plan.routeSet(ctx, r.client.Org(), &resp.Diagnostics))
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	if err != nil {
+		resp.Diagnostics.AddError("updating route-set", err.Error())
+		return
+	}
+	plan.refreshRouteSet(updated, &resp.Diagnostics)
+	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
+}
+
+func (r *irrRouteSetResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
+	var state irrRouteSetModel
+	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	err := r.client.RouteSetDelete(ctx, state.Name.ValueString())
+	if err != nil && !arin.IsNotFound(err) {
+		resp.Diagnostics.AddError("deleting route-set", err.Error())
+	}
+}
+
+func (r *irrRouteSetResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+	resource.ImportStatePassthroughID(ctx, path.Root("name"), req, resp)
+}
