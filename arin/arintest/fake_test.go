@@ -46,7 +46,7 @@ func TestLifecycle(t *testing.T) {
 	if len(roa.Resources) != 2 {
 		t.Fatalf("resources = %+v", roa.Resources)
 	}
-	if got := roa.Resources[0].EndAddress; got != "192.0.2.255" {
+	if got := roa.Resources[0].EndAddress; got != "192.000.002.255" {
 		t.Fatalf("v4 end = %q", got)
 	}
 	if got := roa.Resources[0].IPVersion; got != 4 {

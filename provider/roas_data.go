@@ -102,8 +102,8 @@ func (d *roasData) Read(ctx context.Context, _ datasource.ReadRequest, resp *dat
 		for j := range s.Resources {
 			r := &s.Resources[j]
 			er := roaEntryResource{
-				StartAddress: types.StringValue(r.StartAddress),
-				EndAddress:   types.StringValue(r.EndAddress),
+				StartAddress: types.StringValue(canon(r.StartAddress)),
+				EndAddress:   types.StringValue(canon(r.EndAddress)),
 				CIDRLength:   types.Int64Value(r.CIDRLength),
 				IPVersion:    types.Int64Value(r.IPVersion),
 				AutoLinked:   types.BoolValue(r.AutoLinked),

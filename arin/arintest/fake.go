@@ -159,9 +159,15 @@ func (s *Server) build(spec arin.ROASpecRequest) (arin.ROASpec, error) {
 			v := rr.CIDRLength
 			ml = &v
 		}
+		start := rr.StartAddress
+		end := lastAddr(p).String()
+		if addr.Is4() {
+			start = pad4(addr)
+			end = pad4(lastAddr(p))
+		}
 		out.Resources = append(out.Resources, arin.ROAResource{
-			StartAddress: rr.StartAddress,
-			EndAddress:   lastAddr(p).String(),
+			StartAddress: start,
+			EndAddress:   end,
 			CIDRLength:   rr.CIDRLength,
 			MaxLength:    ml,
 			IPVersion:    ver,
@@ -173,6 +179,12 @@ func (s *Server) build(spec arin.ROASpecRequest) (arin.ROASpec, error) {
 		return out.Resources[i].StartAddress < out.Resources[j].StartAddress
 	})
 	return out, nil
+}
+
+// pad4 mirrors ote's zero padded dotted quad rendering
+func pad4(a netip.Addr) string {
+	b := a.As4()
+	return fmt.Sprintf("%03d.%03d.%03d.%03d", b[0], b[1], b[2], b[3])
 }
 
 // lastAddr returns the highest address in p

@@ -3,6 +3,8 @@ package provider
 import (
 	"fmt"
 	"net/netip"
+	"strconv"
+	"strings"
 
 	"github.com/hashicorp/terraform-plugin-framework/types"
 
@@ -50,12 +52,44 @@ func (m *roaModel) spec() arin.ROASpecRequest {
 	return out
 }
 
+// parseAddr accepts arin's zero padded dotted quads in addition to
+// canonical forms
+func parseAddr(s string) (netip.Addr, bool) {
+	if a, err := netip.ParseAddr(s); err == nil {
+		return a, true
+	}
+	parts := strings.Split(s, ".")
+	if len(parts) != 4 {
+		return netip.Addr{}, false
+	}
+	var b [4]byte
+	for i, p := range parts {
+		if p == "" || len(p) > 3 {
+			return netip.Addr{}, false
+		}
+		n, err := strconv.Atoi(p)
+		if err != nil || n < 0 || n > 255 {
+			return netip.Addr{}, false
+		}
+		b[i] = byte(n)
+	}
+	return netip.AddrFrom4(b), true
+}
+
 // sameAddr compares two textual ip addresses semantically
 // arin may return a different textual form than the configuration
 func sameAddr(a, b string) bool {
-	x, errX := netip.ParseAddr(a)
-	y, errY := netip.ParseAddr(b)
-	return errX == nil && errY == nil && x == y
+	x, okX := parseAddr(a)
+	y, okY := parseAddr(b)
+	return okX && okY && x == y
+}
+
+// canon returns the canonical text form of an address when parseable
+func canon(s string) string {
+	if a, ok := parseAddr(s); ok {
+		return a.String()
+	}
+	return s
 }
 
 // matches reports whether s carries the configured identity of m
@@ -153,7 +187,7 @@ func mergeResource(state roaResourceModel, s *arin.ROAResource) roaResourceModel
 	out := roaResourceModel{
 		StartAddress: state.StartAddress,
 		CIDRLength:   types.Int64Value(s.CIDRLength),
-		EndAddress:   types.StringValue(s.EndAddress),
+		EndAddress:   types.StringValue(canon(s.EndAddress)),
 		IPVersion:    types.Int64Value(s.IPVersion),
 		AutoLinked:   types.BoolValue(s.AutoLinked),
 	}
@@ -172,9 +206,9 @@ func mergeResource(state roaResourceModel, s *arin.ROAResource) roaResourceModel
 
 func serverResource(s *arin.ROAResource) roaResourceModel {
 	out := roaResourceModel{
-		StartAddress: types.StringValue(s.StartAddress),
+		StartAddress: types.StringValue(canon(s.StartAddress)),
 		CIDRLength:   types.Int64Value(s.CIDRLength),
-		EndAddress:   types.StringValue(s.EndAddress),
+		EndAddress:   types.StringValue(canon(s.EndAddress)),
 		IPVersion:    types.Int64Value(s.IPVersion),
 		AutoLinked:   types.BoolValue(s.AutoLinked),
 		MaxLength:    types.Int64Null(),
