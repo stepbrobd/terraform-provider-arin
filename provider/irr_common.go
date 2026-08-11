@@ -85,21 +85,6 @@ func samePrefix(a, b string) bool {
 	return okA && okB && lenA == lenB && sameAddr(ipA, ipB)
 }
 
-// pocRefs builds pocLinkRef entries for the AD, T, and R functions
-func pocRefs(admin, tech, routing []string) []arin.PocLinkRef {
-	var out []arin.PocLinkRef
-	for _, h := range admin {
-		out = append(out, arin.PocLinkRef{Function: "AD", Handle: h})
-	}
-	for _, h := range tech {
-		out = append(out, arin.PocLinkRef{Function: "T", Handle: h})
-	}
-	for _, h := range routing {
-		out = append(out, arin.PocLinkRef{Function: "R", Handle: h})
-	}
-	return out
-}
-
 // pocSplit separates pocLinkRef entries by function
 func pocSplit(refs []arin.PocLinkRef) (admin, tech, routing []string) {
 	for _, r := range refs {

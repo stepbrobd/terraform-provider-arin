@@ -19,9 +19,6 @@ resource "arin_irr_route" "test" {
   prefix       = "192.0.2.0/24"
   origin_as    = 64496
   descriptions = [%q]
-  admin_pocs   = ["EXA-ARIN"]
-  tech_pocs    = ["EXT-ARIN"]
-  routing_pocs = ["EXR-ARIN"]
 }
 `, descr)
 	}
@@ -38,6 +35,9 @@ resource "arin_irr_route" "test" {
 					resource.TestCheckResourceAttrSet("arin_irr_route.test", "created"),
 					resource.TestCheckResourceAttr("arin_irr_route.test", "org_handle", "TESTORG"),
 					resource.TestCheckResourceAttr("arin_irr_route.test", "descriptions.0", "first"),
+					resource.TestCheckResourceAttr("arin_irr_route.test", "admin_pocs.0", "POC-ARIN"),
+					resource.TestCheckResourceAttr("arin_irr_route.test", "tech_pocs.0", "POC-ARIN"),
+					resource.TestCheckResourceAttr("arin_irr_route.test", "routing_pocs.0", "POC-ARIN"),
 				),
 			},
 			{
@@ -67,8 +67,6 @@ resource "arin_irr_route" "guarded" {
   prefix       = "198.51.100.0/24"
   origin_as    = 64496
   descriptions = ["x"]
-  admin_pocs   = ["EXA-ARIN"]
-  tech_pocs    = ["EXT-ARIN"]
 }
 `
 	resource.Test(t, resource.TestCase{

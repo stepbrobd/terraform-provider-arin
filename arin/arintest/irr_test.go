@@ -2,6 +2,8 @@ package arintest
 
 import (
 	"context"
+	"errors"
+	"strings"
 	"testing"
 
 	"github.com/stepbrobd/terraform-provider-arin/arin"
@@ -19,7 +21,6 @@ func TestIRRLifecycle(t *testing.T) {
 		Prefix:      "192.0.2.0/24",
 		OriginAS:    "AS64496",
 		Description: arin.MakeLines([]string{"test route"}),
-		PocLinks:    []arin.PocLinkRef{{Function: "AD", Handle: "EXA-ARIN"}, {Function: "T", Handle: "EXT-ARIN"}},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -31,10 +32,38 @@ func TestIRRLifecycle(t *testing.T) {
 	if created.NetHandle == "" || created.Created == "" || created.OrgHandle != "ORG" {
 		t.Fatalf("created = %+v", created)
 	}
+	// poc links are system generated from the org, not client supplied
+	wantPocs := []arin.PocLinkRef{{Function: "AD", Handle: "POC-ARIN"}, {Function: "T", Handle: "POC-ARIN"}, {Function: "R", Handle: "POC-ARIN"}}
+	if len(created.PocLinks) != len(wantPocs) {
+		t.Fatalf("pocLinks = %+v", created.PocLinks)
+	}
+	for i, want := range wantPocs {
+		if created.PocLinks[i] != want {
+			t.Fatalf("pocLinks = %+v", created.PocLinks)
+		}
+	}
 
 	// duplicate create fails
 	if _, err := c.RouteCreate(ctx, "192.0.2.0/24", 64496, arin.IRRRoute{Prefix: "192.0.2.0/24", OriginAS: "AS64496"}); err == nil {
 		t.Fatal("duplicate create accepted")
+	}
+
+	// client-supplied poc links are rejected like live arin
+	_, err = c.RouteCreate(ctx, "203.0.113.0/24", 64497, arin.IRRRoute{
+		Prefix:   "203.0.113.0/24",
+		OriginAS: "AS64497",
+		PocLinks: []arin.PocLinkRef{{Function: "AD", Handle: "EXA-ARIN"}},
+	})
+	var aerr *arin.Error
+	if err == nil {
+		t.Fatal("client-supplied pocLinks accepted")
+	}
+	if errors.As(err, &aerr) {
+		if aerr.Code != arin.CodeEntityValidation {
+			t.Fatalf("err code = %q", aerr.Code)
+		}
+	} else if !strings.Contains(err.Error(), "system generated") {
+		t.Fatalf("err = %v", err)
 	}
 
 	got, err := c.Route(ctx, "192.0.2.0/24", 64496)

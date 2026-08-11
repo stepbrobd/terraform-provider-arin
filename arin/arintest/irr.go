@@ -48,6 +48,15 @@ func (s *Server) stamp() (created, modified string) {
 	return "2026-01-01T00:00:00Z", fmt.Sprintf("2026-01-01T00:00:%02dZ", s.irrRev%60)
 }
 
+// systemPocLinks is the poc set arin derives from the org for every irr object
+func systemPocLinks() []arin.PocLinkRef {
+	return []arin.PocLinkRef{
+		{Function: "AD", Handle: "POC-ARIN"},
+		{Function: "T", Handle: "POC-ARIN"},
+		{Function: "R", Handle: "POC-ARIN"},
+	}
+}
+
 func (s *Server) stampRoute(r arin.IRRRoute) arin.IRRRoute {
 	created, modified := s.stamp()
 	if r.Created == "" {
@@ -56,6 +65,7 @@ func (s *Server) stampRoute(r arin.IRRRoute) arin.IRRRoute {
 	r.Modified = modified
 	r.OrgHandle = s.org
 	r.Source = "ARIN"
+	r.PocLinks = systemPocLinks()
 	ip, length, _ := strings.Cut(r.Prefix, "/")
 	if a, err := netip.ParseAddr(unpad(ip)); err == nil {
 		if a.Is4() {
@@ -113,6 +123,10 @@ func (s *Server) irrRoute(w http.ResponseWriter, r *http.Request, prefix, origin
 			s.fail(w, http.StatusBadRequest, arin.CodeSchemaValidation, err.Error())
 			return
 		}
+		if len(in.PocLinks) > 0 {
+			s.fail(w, http.StatusBadRequest, arin.CodeEntityValidation, "pocLinks: This element is a system generated value and cannot be modified.")
+			return
+		}
 		out := s.stampRoute(in)
 		if r.Method == http.MethodPut {
 			out.Created = existing.Created
@@ -155,6 +169,10 @@ func (s *Server) irrAutNum(w http.ResponseWriter, r *http.Request, as string) {
 			s.fail(w, http.StatusBadRequest, arin.CodeSchemaValidation, err.Error())
 			return
 		}
+		if len(in.PocLinks) > 0 {
+			s.fail(w, http.StatusBadRequest, arin.CodeEntityValidation, "pocLinks: This element is a system generated value and cannot be modified.")
+			return
+		}
 		created, modified := s.stamp()
 		if r.Method == http.MethodPut {
 			created = existing.Created
@@ -163,6 +181,7 @@ func (s *Server) irrAutNum(w http.ResponseWriter, r *http.Request, as string) {
 		in.Modified = modified
 		in.OrgHandle = s.org
 		in.Source = "ARIN"
+		in.PocLinks = systemPocLinks()
 		in.ASNumber = as
 		s.irrAutNums[as] = in
 		s.write(w, in)
@@ -195,9 +214,14 @@ func (s *Server) irrSet(w http.ResponseWriter, r *http.Request, name string, asS
 				s.fail(w, http.StatusBadRequest, arin.CodeBadRequest, "duplicate as-set "+in.Name)
 				return
 			}
+			if len(in.PocLinks) > 0 {
+				s.fail(w, http.StatusBadRequest, arin.CodeEntityValidation, "pocLinks: This element is a system generated value and cannot be modified.")
+				return
+			}
 			in.Created, in.Modified = s.stamp()
 			in.OrgHandle = s.org
 			in.Source = "ARIN"
+			in.PocLinks = systemPocLinks()
 			s.irrASSets[in.Name] = in
 			s.write(w, in)
 			return
@@ -211,9 +235,14 @@ func (s *Server) irrSet(w http.ResponseWriter, r *http.Request, name string, asS
 			s.fail(w, http.StatusBadRequest, arin.CodeBadRequest, "duplicate route-set "+in.Name)
 			return
 		}
+		if len(in.PocLinks) > 0 {
+			s.fail(w, http.StatusBadRequest, arin.CodeEntityValidation, "pocLinks: This element is a system generated value and cannot be modified.")
+			return
+		}
 		in.Created, in.Modified = s.stamp()
 		in.OrgHandle = s.org
 		in.Source = "ARIN"
+		in.PocLinks = systemPocLinks()
 		s.irrRouteSets[in.Name] = in
 		s.write(w, in)
 		return
@@ -237,11 +266,16 @@ func (s *Server) irrSet(w http.ResponseWriter, r *http.Request, name string, asS
 				s.fail(w, http.StatusBadRequest, arin.CodeSchemaValidation, err.Error())
 				return
 			}
+			if len(in.PocLinks) > 0 {
+				s.fail(w, http.StatusBadRequest, arin.CodeEntityValidation, "pocLinks: This element is a system generated value and cannot be modified.")
+				return
+			}
 			in.Created = existing.Created
 			_, in.Modified = s.stamp()
 			in.OrgHandle = s.org
 			in.Source = "ARIN"
 			in.Name = name
+			in.PocLinks = systemPocLinks()
 			s.irrASSets[name] = in
 			s.write(w, in)
 		case http.MethodDelete:
@@ -274,11 +308,16 @@ func (s *Server) irrSet(w http.ResponseWriter, r *http.Request, name string, asS
 			s.fail(w, http.StatusBadRequest, arin.CodeSchemaValidation, err.Error())
 			return
 		}
+		if len(in.PocLinks) > 0 {
+			s.fail(w, http.StatusBadRequest, arin.CodeEntityValidation, "pocLinks: This element is a system generated value and cannot be modified.")
+			return
+		}
 		in.Created = existing.Created
 		_, in.Modified = s.stamp()
 		in.OrgHandle = s.org
 		in.Source = "ARIN"
 		in.Name = name
+		in.PocLinks = systemPocLinks()
 		s.irrRouteSets[name] = in
 		s.write(w, in)
 	case http.MethodDelete:

@@ -16,9 +16,7 @@ func TestAccIRRAutNum(t *testing.T) {
 resource "arin_irr_aut_num" "test" {
   as_number    = 64496
   as_name      = %q
-  descriptions = ["example"]
-  admin_pocs   = ["EXA-ARIN"]
-  tech_pocs    = ["EXT-ARIN"]%s
+  descriptions = ["example"]%s
 }
 `, name, extra)
 	}

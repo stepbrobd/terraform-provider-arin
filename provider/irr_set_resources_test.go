@@ -16,8 +16,6 @@ func TestAccIRRSets(t *testing.T) {
 resource "arin_irr_as_set" "test" {
   name         = "AS64496:AS-EXAMPLE"
   descriptions = ["example"]
-  admin_pocs   = ["EXA-ARIN"]
-  tech_pocs    = ["EXT-ARIN"]
   members      = [%s]
   mbrs_by_ref  = ["MNT-TESTORG"]
 }
@@ -25,8 +23,6 @@ resource "arin_irr_as_set" "test" {
 resource "arin_irr_route_set" "test" {
   name         = "RS-EXAMPLE"
   descriptions = ["example"]
-  admin_pocs   = ["EXA-ARIN"]
-  tech_pocs    = ["EXT-ARIN"]
   mp_members   = ["192.0.2.0/24", "2001:db8::/32"]
 }
 `, members)

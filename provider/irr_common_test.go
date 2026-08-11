@@ -42,8 +42,8 @@ func TestCanonPrefix(t *testing.T) {
 	}
 }
 
-func TestPocRefsRoundTrip(t *testing.T) {
-	refs := pocRefs([]string{"A1"}, []string{"T1", "T2"}, []string{"R1"})
+func TestPocSplit(t *testing.T) {
+	refs := []arin.PocLinkRef{{Function: "AD", Handle: "A1"}, {Function: "T", Handle: "T1"}, {Function: "T", Handle: "T2"}, {Function: "R", Handle: "R1"}}
 	admin, tech, routing := pocSplit(refs)
 	if !reflect.DeepEqual(admin, []string{"A1"}) || !reflect.DeepEqual(tech, []string{"T1", "T2"}) || !reflect.DeepEqual(routing, []string{"R1"}) {
 		t.Fatalf("split = %v %v %v", admin, tech, routing)
