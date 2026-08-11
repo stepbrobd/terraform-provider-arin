@@ -3,8 +3,10 @@
 Manage ARIN RPKI objects (ROAs and ASPAs) with Terraform or OpenTofu via the
 [ARIN RPKI RESTful API](https://www.arin.net/resources/manage/rpki/rpki-restful/).
 
-Resources: `arin_roa`, `arin_aspa`. Data sources: `arin_roas`, `arin_aspas`. See
-`examples/main.tf` for usage.
+Resources: `arin_roa`, `arin_aspa`, `arin_irr_route`, `arin_irr_aut_num`,
+`arin_irr_as_set`, `arin_irr_route_set`. Data sources: `arin_roas`,
+`arin_aspas`, `arin_irr_routes`, `arin_irr_aut_nums`, `arin_irr_as_sets`,
+`arin_irr_route_sets`. See `examples/main.tf` for usage.
 
 ## Install
 
@@ -48,6 +50,11 @@ TF_ACC=1 go test ./provider/ -v
 
 Updates to a ROA run as one atomic delete+add transaction on ARIN's side and
 reissue the ROA under a new `roa_handle`.
+
+IRR route objects that ARIN maintains for `auto_link` ROAs are refused by
+`arin_irr_route`; manage those through the ROA. Registry objects with ticketed
+or high-blast-radius operations (org creation, NET reassignment, delegations)
+are intentionally not managed by this provider.
 
 Binary Cache:
 
