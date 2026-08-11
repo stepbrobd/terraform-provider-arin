@@ -101,7 +101,7 @@ func (p *arinProvider) Resources(context.Context) []func() resource.Resource {
 }
 
 func (p *arinProvider) DataSources(context.Context) []func() datasource.DataSource {
-	return nil
+	return []func() datasource.DataSource{newROAsData, newASPAsData}
 }
 
 // clientFrom extracts the configured client from provider data
