@@ -58,7 +58,13 @@ func (c *Client) do(ctx context.Context, method, path string, body any) ([]byte,
 		}
 		rd = bytes.NewReader(append([]byte(xml.Header), b...))
 	}
-	req, err := http.NewRequestWithContext(ctx, method, c.base.JoinPath(path).String(), rd)
+	// ote only honors the legacy apikey query parameter while the
+	// production docs prefer the authorization header, so send both
+	u := c.base.JoinPath(path)
+	q := u.Query()
+	q.Set("apikey", c.key)
+	u.RawQuery = q.Encode()
+	req, err := http.NewRequestWithContext(ctx, method, u.String(), rd)
 	if err != nil {
 		return nil, fmt.Errorf("arin: request: %w", err)
 	}

@@ -15,8 +15,10 @@ func TestTransactRequest(t *testing.T) {
 	var body []byte
 	var hdr http.Header
 	var path string
+	var query string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		path = r.URL.Path
+		query = r.URL.Query().Get("apikey")
 		hdr = r.Header.Clone()
 		b, err := io.ReadAll(r.Body)
 		if err != nil {
@@ -52,6 +54,9 @@ func TestTransactRequest(t *testing.T) {
 	}
 	if h := hdr.Get("Authorization"); h != "ApiKey KEY" {
 		t.Fatalf("authorization = %q", h)
+	}
+	if query != "KEY" {
+		t.Fatalf("apikey query param = %q", query)
 	}
 	if ct := hdr.Get("Content-Type"); ct != "application/xml" {
 		t.Fatalf("content-type = %q", ct)
