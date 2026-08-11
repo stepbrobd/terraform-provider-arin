@@ -101,12 +101,16 @@ func TestIRRRouteSetDecodes(t *testing.T) {
 }
 
 // ote returns 404 with E_UNSPECIFIED for missing irr objects, so 404
-// alone must count as not found
-func TestIsNotFoundOn404Unspecified(t *testing.T) {
+// alone must count as missing, but not as the stricter IsNotFound
+// that rpki call sites rely on
+func TestIsMissingOn404Unspecified(t *testing.T) {
 	c := serve(t, http.StatusNotFound, `<error xmlns="http://www.arin.net/regrws/core/v1"><additionalInfo><message>An error occurred while attempting to process your request.</message></additionalInfo><code>E_UNSPECIFIED</code><components/><message>An error occurred while attempting to process your request.</message></error>`)
 	_, err := c.Route(context.Background(), "192.0.2.0/24", 64496)
-	if err == nil || !IsNotFound(err) {
+	if err == nil || !IsMissing(err) {
 		t.Fatalf("err = %v", err)
+	}
+	if IsNotFound(err) {
+		t.Fatalf("IsNotFound = true for %v", err)
 	}
 }
 
@@ -224,5 +228,27 @@ func TestIRRRoutesList(t *testing.T) {
 	}
 	if len(routes) != 1 || routes[0].OriginAS != "AS64496" {
 		t.Fatalf("routes = %+v", routes)
+	}
+}
+
+func TestIRRRouteV6Path(t *testing.T) {
+	var path string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		path = r.URL.Path
+		w.Header().Set("Content-Type", "application/xml")
+		if _, err := io.WriteString(w, irrRouteFixture); err != nil {
+			t.Error(err)
+		}
+	}))
+	t.Cleanup(srv.Close)
+	c, err := New(srv.URL, "KEY", "ORG")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := c.Route(context.Background(), "2001:db8::/32", 64496); err != nil {
+		t.Fatal(err)
+	}
+	if path != "/rest/irr/route/2001:db8::/32/AS64496" {
+		t.Fatalf("path = %q", path)
 	}
 }

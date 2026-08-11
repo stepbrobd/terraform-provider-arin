@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-framework/diag"
+	"github.com/hashicorp/terraform-plugin-framework/types"
 
 	"github.com/stepbrobd/terraform-provider-arin/arin"
 )
@@ -59,4 +60,21 @@ func TestNameRefs(t *testing.T) {
 		t.Fatal("nil not preserved")
 	}
 	var _ []arin.NameRef = refs
+}
+
+func TestMergePreservesConfiguredEmpty(t *testing.T) {
+	empty := toList([]string{})
+	if got := mergeList(empty, nil); !got.Equal(empty) {
+		t.Fatalf("configured empty list collapsed to %v", got)
+	}
+	if got := mergeList(types.ListNull(types.StringType), nil); !got.IsNull() {
+		t.Fatalf("null list became %v", got)
+	}
+	if got := mergeList(empty, []string{"x"}); got.IsNull() || len(got.Elements()) != 1 {
+		t.Fatalf("server values lost: %v", got)
+	}
+	emptySet := toSet([]string{})
+	if got := mergeSet(emptySet, nil); !got.Equal(emptySet) {
+		t.Fatalf("configured empty set collapsed to %v", got)
+	}
 }

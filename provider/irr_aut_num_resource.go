@@ -128,7 +128,7 @@ func (m *irrAutNumModel) refresh(a *arin.IRRAutNum, diags *diag.Diagnostics) {
 	m.ASNumber = types.Int64Value(asNumber(a.ASNumber, diags))
 	m.ASName = types.StringValue(a.ASName)
 	m.Descriptions = toList(a.Description.Strings())
-	m.Remarks = toList(a.Remarks.Strings())
+	m.Remarks = mergeList(m.Remarks, a.Remarks.Strings())
 	admin, tech, routing := pocSplit(a.PocLinks)
 	m.AdminPOCs = toSet(admin)
 	if m.AdminPOCs.IsNull() {
@@ -142,12 +142,12 @@ func (m *irrAutNumModel) refresh(a *arin.IRRAutNum, diags *diag.Diagnostics) {
 	if m.RoutingPOCs.IsNull() {
 		m.RoutingPOCs = toSet([]string{})
 	}
-	m.Imports = toList(a.Imports.Strings())
-	m.Exports = toList(a.Exports.Strings())
-	m.Defaults = toList(a.Defaults.Strings())
-	m.MPImports = toList(a.MPImports.Strings())
-	m.MPExports = toList(a.MPExports.Strings())
-	m.MPDefaults = toList(a.MPDefaults.Strings())
+	m.Imports = mergeList(m.Imports, a.Imports.Strings())
+	m.Exports = mergeList(m.Exports, a.Exports.Strings())
+	m.Defaults = mergeList(m.Defaults, a.Defaults.Strings())
+	m.MPImports = mergeList(m.MPImports, a.MPImports.Strings())
+	m.MPExports = mergeList(m.MPExports, a.MPExports.Strings())
+	m.MPDefaults = mergeList(m.MPDefaults, a.MPDefaults.Strings())
 	m.MemberOf = toSet(names(a.MemberOf))
 	if m.MemberOf.IsNull() {
 		m.MemberOf = toSet([]string{})
@@ -163,10 +163,11 @@ func (r *irrAutNumResource) Create(ctx context.Context, req resource.CreateReque
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	created, err := r.client.AutNumCreate(ctx, plan.ASNumber.ValueInt64(), plan.object(ctx, r.client.Org(), &resp.Diagnostics))
+	payload := plan.object(ctx, r.client.Org(), &resp.Diagnostics)
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	created, err := r.client.AutNumCreate(ctx, plan.ASNumber.ValueInt64(), payload)
 	if err != nil {
 		resp.Diagnostics.AddError("creating aut-num", err.Error())
 		return
@@ -182,7 +183,7 @@ func (r *irrAutNumResource) Read(ctx context.Context, req resource.ReadRequest, 
 		return
 	}
 	got, err := r.client.AutNum(ctx, as.ValueInt64())
-	if arin.IsNotFound(err) {
+	if arin.IsMissing(err) {
 		resp.State.RemoveResource(ctx)
 		return
 	}
@@ -209,10 +210,11 @@ func (r *irrAutNumResource) Update(ctx context.Context, req resource.UpdateReque
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	updated, err := r.client.AutNumUpdate(ctx, plan.ASNumber.ValueInt64(), plan.object(ctx, r.client.Org(), &resp.Diagnostics))
+	payload := plan.object(ctx, r.client.Org(), &resp.Diagnostics)
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	updated, err := r.client.AutNumUpdate(ctx, plan.ASNumber.ValueInt64(), payload)
 	if err != nil {
 		resp.Diagnostics.AddError("updating aut-num", err.Error())
 		return
@@ -228,7 +230,7 @@ func (r *irrAutNumResource) Delete(ctx context.Context, req resource.DeleteReque
 		return
 	}
 	err := r.client.AutNumDelete(ctx, state.ASNumber.ValueInt64())
-	if err != nil && !arin.IsNotFound(err) {
+	if err != nil && !arin.IsMissing(err) {
 		resp.Diagnostics.AddError("deleting aut-num", err.Error())
 	}
 }

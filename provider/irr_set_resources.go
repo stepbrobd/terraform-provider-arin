@@ -117,7 +117,7 @@ func (m *irrSetModel) asSet(ctx context.Context, org string, diags *diag.Diagnos
 func (m *irrSetModel) refreshASSet(s *arin.IRRASSet, diags *diag.Diagnostics) {
 	m.Name = types.StringValue(s.Name)
 	m.Descriptions = toList(s.Description.Strings())
-	m.Remarks = toList(s.Remarks.Strings())
+	m.Remarks = mergeList(m.Remarks, s.Remarks.Strings())
 	admin, tech, routing := pocSplit(s.PocLinks)
 	m.AdminPOCs = toSet(admin)
 	if m.AdminPOCs.IsNull() {
@@ -131,8 +131,8 @@ func (m *irrSetModel) refreshASSet(s *arin.IRRASSet, diags *diag.Diagnostics) {
 	if m.RoutingPOCs.IsNull() {
 		m.RoutingPOCs = toSet([]string{})
 	}
-	m.Members = toSet(names(s.Members))
-	m.MbrsByRef = toSet(names(s.MembersByRef))
+	m.Members = mergeSet(m.Members, names(s.Members))
+	m.MbrsByRef = mergeSet(m.MbrsByRef, names(s.MembersByRef))
 	m.OrgHandle = types.StringValue(s.OrgHandle)
 	m.Created = types.StringValue(s.Created)
 	m.LastModified = types.StringValue(s.Modified)
@@ -144,10 +144,11 @@ func (r *irrASSetResource) Create(ctx context.Context, req resource.CreateReques
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	created, err := r.client.ASSetCreate(ctx, plan.asSet(ctx, r.client.Org(), &resp.Diagnostics))
+	payload := plan.asSet(ctx, r.client.Org(), &resp.Diagnostics)
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	created, err := r.client.ASSetCreate(ctx, payload)
 	if err != nil {
 		resp.Diagnostics.AddError("creating as-set", err.Error())
 		return
@@ -163,7 +164,7 @@ func (r *irrASSetResource) Read(ctx context.Context, req resource.ReadRequest, r
 		return
 	}
 	got, err := r.client.ASSet(ctx, name.ValueString())
-	if arin.IsNotFound(err) {
+	if arin.IsMissing(err) {
 		resp.State.RemoveResource(ctx)
 		return
 	}
@@ -190,10 +191,11 @@ func (r *irrASSetResource) Update(ctx context.Context, req resource.UpdateReques
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	updated, err := r.client.ASSetUpdate(ctx, plan.Name.ValueString(), plan.asSet(ctx, r.client.Org(), &resp.Diagnostics))
+	payload := plan.asSet(ctx, r.client.Org(), &resp.Diagnostics)
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	updated, err := r.client.ASSetUpdate(ctx, plan.Name.ValueString(), payload)
 	if err != nil {
 		resp.Diagnostics.AddError("updating as-set", err.Error())
 		return
@@ -209,7 +211,7 @@ func (r *irrASSetResource) Delete(ctx context.Context, req resource.DeleteReques
 		return
 	}
 	err := r.client.ASSetDelete(ctx, state.Name.ValueString())
-	if err != nil && !arin.IsNotFound(err) {
+	if err != nil && !arin.IsMissing(err) {
 		resp.Diagnostics.AddError("deleting as-set", err.Error())
 	}
 }
@@ -268,7 +270,7 @@ func (m *irrRouteSetModel) routeSet(ctx context.Context, org string, diags *diag
 func (m *irrRouteSetModel) refreshRouteSet(s *arin.IRRRouteSet, diags *diag.Diagnostics) {
 	m.Name = types.StringValue(s.Name)
 	m.Descriptions = toList(s.Description.Strings())
-	m.Remarks = toList(s.Remarks.Strings())
+	m.Remarks = mergeList(m.Remarks, s.Remarks.Strings())
 	admin, tech, routing := pocSplit(s.PocLinks)
 	m.AdminPOCs = toSet(admin)
 	if m.AdminPOCs.IsNull() {
@@ -282,9 +284,9 @@ func (m *irrRouteSetModel) refreshRouteSet(s *arin.IRRRouteSet, diags *diag.Diag
 	if m.RoutingPOCs.IsNull() {
 		m.RoutingPOCs = toSet([]string{})
 	}
-	m.Members = toSet(names(s.Members))
-	m.MPMembers = toSet(names(s.MPMembers))
-	m.MbrsByRef = toSet(names(s.MembersByRef))
+	m.Members = mergeSet(m.Members, names(s.Members))
+	m.MPMembers = mergeSet(m.MPMembers, names(s.MPMembers))
+	m.MbrsByRef = mergeSet(m.MbrsByRef, names(s.MembersByRef))
 	m.OrgHandle = types.StringValue(s.OrgHandle)
 	m.Created = types.StringValue(s.Created)
 	m.LastModified = types.StringValue(s.Modified)
@@ -296,10 +298,11 @@ func (r *irrRouteSetResource) Create(ctx context.Context, req resource.CreateReq
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	created, err := r.client.RouteSetCreate(ctx, plan.routeSet(ctx, r.client.Org(), &resp.Diagnostics))
+	payload := plan.routeSet(ctx, r.client.Org(), &resp.Diagnostics)
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	created, err := r.client.RouteSetCreate(ctx, payload)
 	if err != nil {
 		resp.Diagnostics.AddError("creating route-set", err.Error())
 		return
@@ -315,7 +318,7 @@ func (r *irrRouteSetResource) Read(ctx context.Context, req resource.ReadRequest
 		return
 	}
 	got, err := r.client.RouteSet(ctx, name.ValueString())
-	if arin.IsNotFound(err) {
+	if arin.IsMissing(err) {
 		resp.State.RemoveResource(ctx)
 		return
 	}
@@ -342,10 +345,11 @@ func (r *irrRouteSetResource) Update(ctx context.Context, req resource.UpdateReq
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	updated, err := r.client.RouteSetUpdate(ctx, plan.Name.ValueString(), plan.routeSet(ctx, r.client.Org(), &resp.Diagnostics))
+	payload := plan.routeSet(ctx, r.client.Org(), &resp.Diagnostics)
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	updated, err := r.client.RouteSetUpdate(ctx, plan.Name.ValueString(), payload)
 	if err != nil {
 		resp.Diagnostics.AddError("updating route-set", err.Error())
 		return
@@ -361,7 +365,7 @@ func (r *irrRouteSetResource) Delete(ctx context.Context, req resource.DeleteReq
 		return
 	}
 	err := r.client.RouteSetDelete(ctx, state.Name.ValueString())
-	if err != nil && !arin.IsNotFound(err) {
+	if err != nil && !arin.IsMissing(err) {
 		resp.Diagnostics.AddError("deleting route-set", err.Error())
 	}
 }

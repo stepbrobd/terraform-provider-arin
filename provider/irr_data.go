@@ -84,7 +84,7 @@ func (d *irrRoutesData) Schema(_ context.Context, _ datasource.SchemaRequest, re
 
 func (d *irrRoutesData) Read(ctx context.Context, _ datasource.ReadRequest, resp *datasource.ReadResponse) {
 	list, err := d.client.Routes(ctx)
-	if err != nil && !arin.IsNotFound(err) {
+	if err != nil && !arin.IsMissing(err) {
 		resp.Diagnostics.AddError("listing irr routes", err.Error())
 		return
 	}
@@ -177,7 +177,7 @@ func (d *irrAutNumsData) Schema(_ context.Context, _ datasource.SchemaRequest, r
 
 func (d *irrAutNumsData) Read(ctx context.Context, _ datasource.ReadRequest, resp *datasource.ReadResponse) {
 	list, err := d.client.AutNums(ctx)
-	if err != nil && !arin.IsNotFound(err) {
+	if err != nil && !arin.IsMissing(err) {
 		resp.Diagnostics.AddError("listing irr aut-nums", err.Error())
 		return
 	}
@@ -288,7 +288,7 @@ func setEntry(name string, descr, remarks *arin.Lines, links []arin.PocLinkRef, 
 
 func (d *irrASSetsData) Read(ctx context.Context, _ datasource.ReadRequest, resp *datasource.ReadResponse) {
 	list, err := d.client.ASSets(ctx)
-	if err != nil && !arin.IsNotFound(err) {
+	if err != nil && !arin.IsMissing(err) {
 		resp.Diagnostics.AddError("listing irr as-sets", err.Error())
 		return
 	}
@@ -334,7 +334,7 @@ func (d *irrRouteSetsData) Schema(_ context.Context, _ datasource.SchemaRequest,
 
 func (d *irrRouteSetsData) Read(ctx context.Context, _ datasource.ReadRequest, resp *datasource.ReadResponse) {
 	list, err := d.client.RouteSets(ctx)
-	if err != nil && !arin.IsNotFound(err) {
+	if err != nil && !arin.IsMissing(err) {
 		resp.Diagnostics.AddError("listing irr route-sets", err.Error())
 		return
 	}

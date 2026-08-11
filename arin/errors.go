@@ -48,10 +48,17 @@ func (e *Error) Error() string {
 	return b.String()
 }
 
-// IsNotFound reports whether err is an arin not-found error
-// ote returns 404 with E_UNSPECIFIED for missing irr objects, so a
-// 404 status counts regardless of code
+// IsNotFound reports whether err is an arin E_OBJECT_NOT_FOUND error
 func IsNotFound(err error) bool {
+	var e *Error
+	return errors.As(err, &e) && e.Code == CodeObjectNotFound
+}
+
+// IsMissing reports whether err denotes an absent object on endpoints
+// where ote signals missing data with a bare 404 and E_UNSPECIFIED,
+// which the irr api does
+// rpki call sites keep the stricter IsNotFound
+func IsMissing(err error) bool {
 	var e *Error
 	if !errors.As(err, &e) {
 		return false

@@ -130,7 +130,7 @@ func (m *irrRouteModel) refresh(r *arin.IRRRoute, diags *diag.Diagnostics) {
 	}
 	m.OriginAS = types.Int64Value(asNumber(r.OriginAS, diags))
 	m.Descriptions = toList(r.Description.Strings())
-	m.Remarks = toList(r.Remarks.Strings())
+	m.Remarks = mergeList(m.Remarks, r.Remarks.Strings())
 	admin, tech, routing := pocSplit(r.PocLinks)
 	m.AdminPOCs = toSet(admin)
 	if m.AdminPOCs.IsNull() {
@@ -175,7 +175,7 @@ func (r *irrRouteResource) Create(ctx context.Context, req resource.CreateReques
 	// pre-create get so auto-linked objects fail with a clear error
 	// instead of a duplicate-create error
 	existing, err := r.client.Route(ctx, prefix, origin)
-	if err != nil && !arin.IsNotFound(err) {
+	if err != nil && !arin.IsMissing(err) {
 		resp.Diagnostics.AddError("checking for existing route", err.Error())
 		return
 	}
@@ -187,10 +187,11 @@ func (r *irrRouteResource) Create(ctx context.Context, req resource.CreateReques
 		resp.Diagnostics.AddError("route already exists", "import it instead of creating")
 		return
 	}
-	created, err := r.client.RouteCreate(ctx, prefix, origin, plan.object(ctx, r.client.Org(), &resp.Diagnostics))
+	payload := plan.object(ctx, r.client.Org(), &resp.Diagnostics)
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	created, err := r.client.RouteCreate(ctx, prefix, origin, payload)
 	if err != nil {
 		resp.Diagnostics.AddError("creating route", err.Error())
 		return
@@ -208,7 +209,7 @@ func (r *irrRouteResource) Read(ctx context.Context, req resource.ReadRequest, r
 		return
 	}
 	got, err := r.client.Route(ctx, prefix.ValueString(), origin.ValueInt64())
-	if arin.IsNotFound(err) {
+	if arin.IsMissing(err) {
 		resp.State.RemoveResource(ctx)
 		return
 	}
@@ -239,10 +240,11 @@ func (r *irrRouteResource) Update(ctx context.Context, req resource.UpdateReques
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	updated, err := r.client.RouteUpdate(ctx, plan.Prefix.ValueString(), plan.OriginAS.ValueInt64(), plan.object(ctx, r.client.Org(), &resp.Diagnostics))
+	payload := plan.object(ctx, r.client.Org(), &resp.Diagnostics)
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	updated, err := r.client.RouteUpdate(ctx, plan.Prefix.ValueString(), plan.OriginAS.ValueInt64(), payload)
 	if err != nil {
 		resp.Diagnostics.AddError("updating route", err.Error())
 		return
@@ -258,7 +260,7 @@ func (r *irrRouteResource) Delete(ctx context.Context, req resource.DeleteReques
 		return
 	}
 	err := r.client.RouteDelete(ctx, state.Prefix.ValueString(), state.OriginAS.ValueInt64())
-	if err != nil && !arin.IsNotFound(err) {
+	if err != nil && !arin.IsMissing(err) {
 		resp.Diagnostics.AddError("deleting route", err.Error())
 	}
 }

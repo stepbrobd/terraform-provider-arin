@@ -57,6 +57,30 @@ func toSet(ss []string) types.Set {
 	return types.SetValueMust(types.StringType, vals)
 }
 
+// mergeList takes the server view of an optional list but preserves a
+// configured empty list, which would otherwise collapse to null and
+// break apply consistency
+func mergeList(prior types.List, server []string) types.List {
+	if len(server) == 0 {
+		if !prior.IsNull() && !prior.IsUnknown() && len(prior.Elements()) == 0 {
+			return prior
+		}
+		return types.ListNull(types.StringType)
+	}
+	return toList(server)
+}
+
+// mergeSet is mergeList for set values
+func mergeSet(prior types.Set, server []string) types.Set {
+	if len(server) == 0 {
+		if !prior.IsNull() && !prior.IsUnknown() && len(prior.Elements()) == 0 {
+			return prior
+		}
+		return types.SetNull(types.StringType)
+	}
+	return toSet(server)
+}
+
 // asString renders the wire form of an as number
 func asString(n int64) string { return fmt.Sprintf("AS%d", n) }
 

@@ -95,8 +95,27 @@ func TestIRRLifecycle(t *testing.T) {
 	if err := c.RouteDelete(ctx, "192.0.2.0/24", 64496); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := c.Route(ctx, "192.0.2.0/24", 64496); !arin.IsNotFound(err) {
+	if _, err := c.Route(ctx, "192.0.2.0/24", 64496); !arin.IsMissing(err) {
 		t.Fatalf("after delete err = %v", err)
+	}
+
+	// v6 route: the fake only pads v4, so the prefix round-trips verbatim
+	createdV6, err := c.RouteCreate(ctx, "2001:db8::/32", 64496, arin.IRRRoute{
+		Prefix:      "2001:db8::/32",
+		OriginAS:    "AS64496",
+		Description: arin.MakeLines([]string{"test v6 route"}),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if createdV6.Version != 6 || createdV6.Prefix != "2001:db8::/32" {
+		t.Fatalf("created v6 = %+v", createdV6)
+	}
+	if err := c.RouteDelete(ctx, "2001:db8::/32", 64496); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := c.Route(ctx, "2001:db8::/32", 64496); !arin.IsMissing(err) {
+		t.Fatalf("after v6 delete err = %v", err)
 	}
 
 	// aut-num and sets
