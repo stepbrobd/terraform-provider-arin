@@ -63,7 +63,8 @@ provider_installation {
 nix develop
 go test ./...
 
-# acceptance tests against the in-memory fake
+# acceptance tests against the in-memory fake, driven by opentofu
+# (the dev shell presets TF_ACC_TERRAFORM_PATH and TF_ACC_PROVIDER_HOST)
 TF_ACC=1 go test ./provider/ -v
 ```
 

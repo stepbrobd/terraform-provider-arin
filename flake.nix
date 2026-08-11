@@ -32,6 +32,12 @@
 
       devShells.default = pkgs.mkShell {
         inputsFrom = lib.attrValues self'.packages;
+        # terraform-plugin-testing drives acceptance tests through
+        # opentofu, which needs both overrides
+        env = {
+          TF_ACC_TERRAFORM_PATH = lib.getExe pkgs.opentofu;
+          TF_ACC_PROVIDER_HOST = "registry.opentofu.org";
+        };
         packages = with pkgs; [
           deno
           nixpkgs-fmt
