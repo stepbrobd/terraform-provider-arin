@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/xml"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -83,6 +84,11 @@ func (c *Client) do(ctx context.Context, method, path string, query url.Values, 
 	}
 	res, err := c.http.Do(req)
 	if err != nil {
+		// a url.Error embeds the full request url, apikey query included
+		// keep only the transport cause, the wrap names method and path
+		if uerr, ok := errors.AsType[*url.Error](err); ok {
+			err = uerr.Err
+		}
 		return nil, fmt.Errorf("arin: %s %s: %w", method, path, err)
 	}
 	defer res.Body.Close()

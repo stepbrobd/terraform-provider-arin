@@ -3,6 +3,7 @@ package arin
 import (
 	"context"
 	"encoding/xml"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -252,6 +253,43 @@ func TestErrorPayload(t *testing.T) {
 		if !strings.Contains(msg, want) {
 			t.Fatalf("error %q missing %q", msg, want)
 		}
+	}
+}
+
+func TestTransportErrorOmitsKey(t *testing.T) {
+	srv := httptest.NewServer(nil)
+	srv.Close()
+	c, err := New(srv.URL, "SECRETKEY", "ORG")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = c.ROAs(context.Background())
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if strings.Contains(err.Error(), "SECRETKEY") {
+		t.Fatalf("error leaks the api key: %q", err)
+	}
+	if !strings.Contains(err.Error(), "GET /rest/roa/ORG") {
+		t.Fatalf("error lost method and path: %q", err)
+	}
+}
+
+func TestTransportErrorKeepsCause(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
+	t.Cleanup(srv.Close)
+	c, err := New(srv.URL, "SECRETKEY", "ORG")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	_, err = c.ROAs(ctx)
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("cause chain broken: %v", err)
+	}
+	if strings.Contains(err.Error(), "SECRETKEY") {
+		t.Fatalf("error leaks the api key: %q", err)
 	}
 }
 
