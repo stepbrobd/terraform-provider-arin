@@ -7,9 +7,11 @@ and the
 [IRR RESTful API](https://www.arin.net/resources/manage/irr/irr-restful/).
 
 Resources: `arin_roa`, `arin_aspa`, `arin_irr_route`, `arin_irr_aut_num`,
-`arin_irr_as_set`, `arin_irr_route_set`. Data sources: `arin_roas`,
-`arin_aspas`, `arin_irr_routes`, `arin_irr_aut_nums`, `arin_irr_as_sets`,
-`arin_irr_route_sets`. See `examples/main.tf` for usage.
+`arin_irr_as_set`, `arin_irr_route_set`, `arin_net` (adopt only),
+`arin_delegation` (modify only). Data sources: `arin_roas`, `arin_aspas`,
+`arin_irr_routes`, `arin_irr_aut_nums`, `arin_irr_as_sets`,
+`arin_irr_route_sets`, `arin_net`, `arin_delegation`, `arin_org`, `arin_poc`.
+See `examples/main.tf` for usage.
 
 ## Install
 
@@ -74,9 +76,31 @@ Updates to a ROA run as one atomic delete+add transaction on ARIN's side and
 reissue the ROA under a new `roa_handle`.
 
 IRR route objects that ARIN maintains for `auto_link` ROAs are refused by
-`arin_irr_route`; manage those through the ROA. Registry objects with ticketed
-or high-blast-radius operations (org creation, NET reassignment, delegations)
-are intentionally not managed by this provider.
+`arin_irr_route`; manage those through the ROA.
+
+## Intentional exclusions
+
+The provider applies a three-tier mutation safety policy. Tier 1 is full
+lifecycle management for objects whose operations are synchronous, org-owned,
+and reversible through the same API: RPKI and IRR objects. Tier 2 is
+metadata-only management of existing registry objects adopted via import:
+`arin_net` updates net name and public comments (the RFC 9092 geofeed URL lives
+there), `arin_delegation` updates nameservers and DS records. Tier 3 is
+read-only exposure for everything ticketed or with registry-level blast radius.
+
+Excluded on purpose:
+
+- Org and POC resources. The fields would be metadata-safe, but they stay data
+  sources (`arin_org`, `arin_poc`) by owner decision for now.
+- Org and NET creation, deletion, reassignment, and reallocation. ARIN handles
+  these through ticketed requests with no sane Terraform lifecycle.
+- POC-to-org link management.
+- An ASN registry resource. Reg-RWS has no ASN endpoint; IRR `aut-num` carries
+  the AS name and description, and NET public comments carry the geofeed
+  reference.
+- Delegation creation and deletion. Delegations exist implicitly per net, so
+  `arin_delegation` modifies in place, and DNS changes take up to 24 hours to
+  propagate.
 
 Binary Cache:
 
