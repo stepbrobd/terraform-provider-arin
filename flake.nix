@@ -41,7 +41,9 @@
           gomod2nix
           gopls
 
+          goreleaser
           opentofu
+          terraform-plugin-docs
         ];
       };
 
@@ -50,6 +52,18 @@
         shopt -s globstar
 
         pushd "$(${lib.getExe pkgs.git} rev-parse --show-toplevel)" > /dev/null
+
+        # regenerate registry docs from the provider schema
+        # tfplugindocs only resolves the hashicorp namespace from a
+        # providers-schema file, hence the jq key rewrite
+        tmp="$(mktemp -d)"
+        trap 'rm -rf "$tmp"' EXIT
+        ${lib.getExe pkgs.go} build -o "$tmp/terraform-provider-arin" ./cmd/terraform-provider-arin
+        printf 'terraform {\n  required_providers {\n    arin = {\n      source = "registry.terraform.io/stepbrobd/arin"\n    }\n  }\n}\n' > "$tmp/main.tf"
+        printf 'provider_installation {\n  dev_overrides {\n    "registry.terraform.io/stepbrobd/arin" = "%s"\n  }\n  direct {}\n}\n' "$tmp" > "$tmp/dev.tfrc"
+        TF_CLI_CONFIG_FILE="$tmp/dev.tfrc" ${lib.getExe pkgs.opentofu} -chdir="$tmp" providers schema -json > "$tmp/schema.json"
+        ${lib.getExe pkgs.jq} '.provider_schemas |= {"registry.terraform.io/hashicorp/arin": .["registry.terraform.io/stepbrobd/arin"]}' "$tmp/schema.json" > "$tmp/schema-docs.json"
+        ${lib.getExe' pkgs.terraform-plugin-docs "tfplugindocs"} generate --providers-schema "$tmp/schema-docs.json" --provider-name arin --rendered-website-dir docs
 
         ${lib.getExe pkgs.deno} fmt **/*.md
         ${lib.getExe pkgs.nixpkgs-fmt} .

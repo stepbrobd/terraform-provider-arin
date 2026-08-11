@@ -8,3 +8,4 @@ result-*
 .terraform.lock.hcl
 *.tfstate
 *.tfstate.backup
+/dist

@@ -18,8 +18,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
 
-      - name: Release
+      - name: Tag
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
@@ -29,7 +31,29 @@ jobs:
           version="v$(tr -d '[:space:]' < version.txt)"
           if gh release view "$version" >/dev/null 2>&1; then
             echo "$version already released, skipping."
+            echo "skip=true" >> "$GITHUB_ENV"
             exit 0
           fi
 
-          gh release create "$version" --target "$GITHUB_SHA" --generate-notes || gh release view "$version" >/dev/null
+          git tag -f "$version" "$GITHUB_SHA"
+          git push -f origin "$version"
+
+      - uses: actions/setup-go@v5
+        if: env.skip != 'true'
+        with:
+          go-version-file: go.mod
+
+      - uses: crazy-max/ghaction-import-gpg@v6
+        if: env.skip != 'true'
+        id: gpg
+        with:
+          gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
+          passphrase: ${{ secrets.PASSPHRASE }}
+
+      - uses: goreleaser/goreleaser-action@v6
+        if: env.skip != 'true'
+        with:
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GPG_FINGERPRINT: ${{ steps.gpg.outputs.fingerprint }}

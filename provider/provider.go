@@ -40,7 +40,7 @@ func (p *arinProvider) Metadata(_ context.Context, _ provider.MetadataRequest, r
 
 func (p *arinProvider) Schema(_ context.Context, _ provider.SchemaRequest, resp *provider.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		Description: "Manage ARIN RPKI objects (ROAs and ASPAs) through the RPKI RESTful API.",
+		Description: "Manage ARIN RPKI objects (ROAs, ASPAs) and IRR objects (route, aut-num, as-set, route-set) through ARIN's RESTful APIs.",
 		Attributes: map[string]schema.Attribute{
 			"api_key": schema.StringAttribute{
 				Optional:    true,
