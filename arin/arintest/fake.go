@@ -117,6 +117,12 @@ func (s *Server) handle(w http.ResponseWriter, r *http.Request) {
 		}
 		s.listROAs(w)
 	case r.Method == http.MethodGet && r.URL.Path == "/rest/aspa/"+s.org:
+		// production 415s this get without a content-type header while
+		// ote does not, keep the fake as strict as production
+		if r.Header.Get("Content-Type") != "application/xml" {
+			s.fail(w, http.StatusUnsupportedMediaType, "E_UNSUPPORTED_MEDIA_TYPE", "The 'Content-Type' header for this request must be set to the following media type: application/xml")
+			return
+		}
 		s.listASPAs(w)
 	default:
 		s.fail(w, http.StatusNotFound, arin.CodeObjectNotFound, r.Method+" "+r.URL.Path)

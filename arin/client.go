@@ -79,9 +79,9 @@ func (c *Client) do(ctx context.Context, method, path string, query url.Values, 
 	}
 	req.Header.Set("Authorization", "ApiKey "+c.key)
 	req.Header.Set("Accept", "application/xml")
-	if body != nil {
-		req.Header.Set("Content-Type", "application/xml")
-	}
+	// unconditional, production 415s bodyless gets on some endpoints
+	// (e.g. /rest/aspa/<org>) while ote does not care either way
+	req.Header.Set("Content-Type", "application/xml")
 	res, err := c.http.Do(req)
 	if err != nil {
 		// a url.Error embeds the full request url, apikey query included
