@@ -174,16 +174,16 @@ schema = 3
     hash = 'sha256-GNYRehTHWk++QZy9B30zitBeMHgrd3g3wLno3gYNkes='
 
   [mod.'golang.org/x/crypto']
-    version = 'v0.54.0'
-    hash = 'sha256-m8jsqlPuoPxGDjClzcAVbXf1aiU07L+9j7vYcqJu/0Q='
+    version = 'v0.55.0'
+    hash = 'sha256-99uV/ESeqhaDEwqbXxDpePuwzO0JoEHGhqZXZVHq/H4='
 
   [mod.'golang.org/x/mod']
     version = 'v0.38.0'
     hash = 'sha256-BpKfvsmb7ecEDvTBKx9ZHauxoWRkOAZCqg4BrHM2/S0='
 
   [mod.'golang.org/x/net']
-    version = 'v0.57.0'
-    hash = 'sha256-gKo8UMw4hfETBHm8N5GOfuNadse9TWEQXJo2YWq5bY4='
+    version = 'v0.58.0'
+    hash = 'sha256-fDOkQJXURrbq2dBGa91bCUsXknCZlo3ru2JIofSOGRo='
 
   [mod.'golang.org/x/sync']
     version = 'v0.22.0'
