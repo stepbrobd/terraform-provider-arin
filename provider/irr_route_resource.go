@@ -97,7 +97,7 @@ func (r *irrRouteResource) Schema(_ context.Context, _ resource.SchemaRequest, r
 			"member_of": schema.SetAttribute{
 				Computed:      true,
 				ElementType:   types.StringType,
-				Description:   "Route-set names referencing this route. Server derived.",
+				Description:   "Route-set names referencing this route. Not managed by the provider, updates keep ARIN's value.",
 				PlanModifiers: []planmodifier.Set{unknownOnUpdate{}},
 			},
 			"ip_version":             schema.Int64Attribute{Computed: true, PlanModifiers: []planmodifier.Int64{unknownOnUpdate{}}},
@@ -168,16 +168,16 @@ func routeGuard(r *arin.IRRRoute) error {
 // a route can become auto-linked after the last refresh, and applies
 // with -refresh=false skip read entirely, so update and delete
 // re-check server state before mutating
-// exists is false when the object is already absent
-func (r *irrRouteResource) mutable(ctx context.Context, prefix string, origin int64) (exists bool, err error) {
+// the current object is nil when it is already absent
+func (r *irrRouteResource) mutable(ctx context.Context, prefix string, origin int64) (*arin.IRRRoute, error) {
 	current, err := r.client.Route(ctx, prefix, origin)
 	if arin.IsMissing(err) {
-		return false, nil
+		return nil, nil
 	}
 	if err != nil {
-		return false, err
+		return nil, err
 	}
-	return true, routeGuard(current)
+	return current, routeGuard(current)
 }
 
 func (r *irrRouteResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
@@ -256,12 +256,12 @@ func (r *irrRouteResource) Update(ctx context.Context, req resource.UpdateReques
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	exists, err := r.mutable(ctx, plan.Prefix.ValueString(), plan.OriginAS.ValueInt64())
+	current, err := r.mutable(ctx, plan.Prefix.ValueString(), plan.OriginAS.ValueInt64())
 	if err != nil {
 		resp.Diagnostics.AddError("route is not updatable", err.Error())
 		return
 	}
-	if !exists {
+	if current == nil {
 		resp.Diagnostics.AddError("updating route", "route no longer exists, refresh and re-plan")
 		return
 	}
@@ -269,6 +269,9 @@ func (r *irrRouteResource) Update(ctx context.Context, req resource.UpdateReques
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	// arin stores member-of like any other field and a put without it
+	// clears it, the provider does not manage it and keeps arin's value
+	payload.MemberOf = current.MemberOf
 	updated, err := r.client.RouteUpdate(ctx, plan.Prefix.ValueString(), plan.OriginAS.ValueInt64(), payload)
 	if err != nil {
 		resp.Diagnostics.AddError("updating route", err.Error())
@@ -284,12 +287,12 @@ func (r *irrRouteResource) Delete(ctx context.Context, req resource.DeleteReques
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	exists, err := r.mutable(ctx, state.Prefix.ValueString(), state.OriginAS.ValueInt64())
+	current, err := r.mutable(ctx, state.Prefix.ValueString(), state.OriginAS.ValueInt64())
 	if err != nil {
 		resp.Diagnostics.AddError("route is not deletable", err.Error())
 		return
 	}
-	if !exists {
+	if current == nil {
 		return
 	}
 	err = r.client.RouteDelete(ctx, state.Prefix.ValueString(), state.OriginAS.ValueInt64())

@@ -18,15 +18,15 @@ func TestRouteMutable(t *testing.T) {
 	r := &irrRouteResource{client: c}
 	ctx := context.Background()
 
-	exists, err := r.mutable(ctx, "192.0.2.0/24", 64496)
-	if err != nil || exists {
-		t.Fatalf("absent route: exists=%v err=%v", exists, err)
+	current, err := r.mutable(ctx, "192.0.2.0/24", 64496)
+	if err != nil || current != nil {
+		t.Fatalf("absent route: current=%v err=%v", current, err)
 	}
 
 	srv.InjectRoute(arin.IRRRoute{Prefix: "192.0.2.0/24", OriginAS: "AS64496"})
-	exists, err = r.mutable(ctx, "192.0.2.0/24", 64496)
-	if err != nil || !exists {
-		t.Fatalf("plain route: exists=%v err=%v", exists, err)
+	current, err = r.mutable(ctx, "192.0.2.0/24", 64496)
+	if err != nil || current == nil {
+		t.Fatalf("plain route: current=%v err=%v", current, err)
 	}
 
 	srv.InjectRoute(arin.IRRRoute{Prefix: "198.51.100.0/24", OriginAS: "AS64496", AutoLinkedRoaHandle: "roa-1"})

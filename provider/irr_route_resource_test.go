@@ -43,10 +43,21 @@ resource "arin_irr_route" "test" {
 				),
 			},
 			{
+				// member-of is set outside terraform and the update must keep it
+				PreConfig: func() {
+					r, ok := srv.Route("192.0.2.0/24", "AS64496")
+					if !ok {
+						t.Fatal("route missing from the fake")
+					}
+					r.MemberOf = []arin.NameRef{{Name: "RS-TEST"}}
+					srv.InjectRoute(r)
+				},
 				Config: route("second", `[]`),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("arin_irr_route.test", "descriptions.0", "second"),
 					resource.TestCheckResourceAttr("arin_irr_route.test", "remarks.#", "0"),
+					resource.TestCheckResourceAttr("arin_irr_route.test", "member_of.#", "1"),
+					resource.TestCheckResourceAttr("arin_irr_route.test", "member_of.0", "RS-TEST"),
 				),
 			},
 			{

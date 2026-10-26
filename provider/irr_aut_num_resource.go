@@ -97,7 +97,7 @@ func (r *irrAutNumResource) Schema(_ context.Context, _ resource.SchemaRequest, 
 			"member_of": schema.SetAttribute{
 				Computed:      true,
 				ElementType:   types.StringType,
-				Description:   "Parent as-set names. Server derived.",
+				Description:   "Parent as-set names. Not managed by the provider, updates keep ARIN's value.",
 				PlanModifiers: []planmodifier.Set{unknownOnUpdate{}},
 			},
 			"org_handle":    schema.StringAttribute{Computed: true, PlanModifiers: []planmodifier.String{unknownOnUpdate{}}},
@@ -214,6 +214,14 @@ func (r *irrAutNumResource) Update(ctx context.Context, req resource.UpdateReque
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	// arin stores member-of like any other field and a put without it
+	// clears it, the provider does not manage it and keeps arin's value
+	current, err := r.client.AutNum(ctx, plan.ASNumber.ValueInt64())
+	if err != nil {
+		resp.Diagnostics.AddError("reading aut-num before update", err.Error())
+		return
+	}
+	payload.MemberOf = current.MemberOf
 	updated, err := r.client.AutNumUpdate(ctx, plan.ASNumber.ValueInt64(), payload)
 	if err != nil {
 		resp.Diagnostics.AddError("updating aut-num", err.Error())
