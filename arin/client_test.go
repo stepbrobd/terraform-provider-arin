@@ -56,8 +56,8 @@ func TestTransactRequest(t *testing.T) {
 	if h := hdr.Get("Authorization"); h != "ApiKey KEY" {
 		t.Fatalf("authorization = %q", h)
 	}
-	if query != "KEY" {
-		t.Fatalf("apikey query param = %q", query)
+	if query != "" {
+		t.Fatalf("apikey query param = %q, want none", query)
 	}
 	if ct := hdr.Get("Content-Type"); ct != "application/xml" {
 		t.Fatalf("content-type = %q", ct)

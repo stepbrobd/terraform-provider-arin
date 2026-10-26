@@ -88,9 +88,9 @@ func (s *Server) fail(w http.ResponseWriter, status int, code, msg string) {
 func (s *Server) handle(w http.ResponseWriter, r *http.Request) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	// ote ignores the authorization header, so the fake authenticates
-	// the way ote actually does
-	if r.URL.Query().Get("apikey") != s.key {
+	// production and ote both authenticate with the authorization header,
+	// the only place the client sends the key
+	if r.Header.Get("Authorization") != "ApiKey "+s.key {
 		s.fail(w, http.StatusUnauthorized, arin.CodeAuthentication, "bad api key")
 		return
 	}

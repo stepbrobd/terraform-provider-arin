@@ -62,8 +62,6 @@ func (c *Client) do(ctx context.Context, method, path string, query url.Values, 
 		}
 		rd = bytes.NewReader(append([]byte(xml.Header), b...))
 	}
-	// ote only honors the legacy apikey query parameter while the
-	// production docs prefer the authorization header, so send both
 	u := c.base.JoinPath(path)
 	q := u.Query()
 	for k, vs := range query {
@@ -71,12 +69,14 @@ func (c *Client) do(ctx context.Context, method, path string, query url.Values, 
 			q.Add(k, v)
 		}
 	}
-	q.Set("apikey", c.key)
 	u.RawQuery = q.Encode()
 	req, err := http.NewRequestWithContext(ctx, method, u.String(), rd)
 	if err != nil {
 		return nil, fmt.Errorf("arin: request: %w", err)
 	}
+	// production and ote both honor the authorization header, which keeps
+	// the key out of urls and server logs where the legacy apikey query
+	// parameter would put it
 	req.Header.Set("Authorization", "ApiKey "+c.key)
 	req.Header.Set("Accept", "application/xml")
 	// unconditional, production 415s bodyless gets on some endpoints
@@ -84,7 +84,7 @@ func (c *Client) do(ctx context.Context, method, path string, query url.Values, 
 	req.Header.Set("Content-Type", "application/xml")
 	res, err := c.http.Do(req)
 	if err != nil {
-		// a url.Error embeds the full request url, apikey query included
+		// a url.Error repeats the method and the full request url
 		// keep only the transport cause, the wrap names method and path
 		if uerr, ok := errors.AsType[*url.Error](err); ok {
 			err = uerr.Err
