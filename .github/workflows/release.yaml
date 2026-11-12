@@ -38,19 +38,19 @@ jobs:
           git tag -f "$version" "$GITHUB_SHA"
           git push -f origin "$version"
 
-      - uses: actions/setup-go@v5.6.0
+      - uses: actions/setup-go@v7.0.0
         if: env.skip != 'true'
         with:
           go-version-file: go.mod
 
-      - uses: crazy-max/ghaction-import-gpg@v6.3.0
+      - uses: crazy-max/ghaction-import-gpg@v7.0.0
         if: env.skip != 'true'
         id: gpg
         with:
           gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
           passphrase: ${{ secrets.PASSPHRASE }}
 
-      - uses: goreleaser/goreleaser-action@v6.4.0
+      - uses: goreleaser/goreleaser-action@v7.3.0
         if: env.skip != 'true'
         with:
           args: release --clean
