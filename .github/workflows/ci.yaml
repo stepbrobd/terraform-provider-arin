@@ -20,6 +20,6 @@ jobs:
   Drift:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4.4.0
       - uses: DeterminateSystems/nix-installer-action@main
       - run: nix develop --command sh -c 'gomod2nix && git diff --exit-code gomod2nix.toml'

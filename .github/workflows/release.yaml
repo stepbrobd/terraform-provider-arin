@@ -17,7 +17,7 @@ jobs:
     if: github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7.0.1
         with:
           fetch-depth: 0
 
@@ -38,19 +38,19 @@ jobs:
           git tag -f "$version" "$GITHUB_SHA"
           git push -f origin "$version"
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v5.6.0
         if: env.skip != 'true'
         with:
           go-version-file: go.mod
 
-      - uses: crazy-max/ghaction-import-gpg@v6
+      - uses: crazy-max/ghaction-import-gpg@v6.3.0
         if: env.skip != 'true'
         id: gpg
         with:
           gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
           passphrase: ${{ secrets.PASSPHRASE }}
 
-      - uses: goreleaser/goreleaser-action@v6
+      - uses: goreleaser/goreleaser-action@v6.4.0
         if: env.skip != 'true'
         with:
           args: release --clean
