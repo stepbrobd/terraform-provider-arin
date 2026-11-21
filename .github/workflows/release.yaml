@@ -38,7 +38,7 @@ jobs:
           git tag -f "$version" "$GITHUB_SHA"
           git push -f origin "$version"
 
-      - uses: actions/setup-go@v7.0.0
+      - uses: actions/setup-go@v7.1.0
         if: env.skip != 'true'
         with:
           go-version-file: go.mod
